@@ -89,11 +89,11 @@ func fixtureServer(t *testing.T) *httptest.Server {
 	})
 	mux.HandleFunc("/submissions/CIK0000019617.json", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, `{"filings":{"recent":{
-			"accessionNumber":["0000019617-26-000300","0000019617-26-000200","0000019617-26-000100"],
-			"filingDate":["2026-11-20","2026-11-19","2026-08-14"],
-			"form":["8-K","8-K","8-K"],
-			"items":["2.02,9.01","8.01","2.02,9.01"],
-			"primaryDocument":["a.htm","b.htm","c.htm"]},"files":[]}}`)
+			"accessionNumber":["0000019617-26-000300","0000019617-26-000200","0000019617-26-000250","0000019617-26-000100"],
+			"filingDate":["2026-11-20","2026-11-19","2026-10-14","2026-08-14"],
+			"form":["8-K","8-K","8-K","8-K"],
+			"items":["2.02,9.01","8.01","2.02,9.01","2.02,9.01"],
+			"primaryDocument":["a.htm","b.htm","e.htm","c.htm"]},"files":[]}}`)
 	})
 	mux.HandleFunc("/Archives/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "-index.htm") {
@@ -244,5 +244,28 @@ func TestDryRunWithoutKeys(t *testing.T) {
 	}
 	if v, _ := p.Store.Meta(metaLastSent); v != "" {
 		t.Fatal("dry run recorded a send")
+	}
+}
+
+func TestBackfillSeasonNotShown(t *testing.T) {
+	srv := fixtureServer(t)
+	caller := &fakeCaller{}
+	sender := &fakeSender{}
+	p := newTestPipeline(t, srv, caller, sender)
+	p.Cfg.Watchlist[0].Depth = "headline" // no prior-quarter extraction
+	if _, err := p.Run(context.Background(), Options{Now: now0}); err != nil {
+		t.Fatal(err)
+	}
+	// Current release (Nov 20) plus the Oct 14 release backfilled for the season; Aug 14 is outside 100 days.
+	if n := caller.extractions.Load(); n != 2 {
+		t.Fatalf("extractions = %d, want 2", n)
+	}
+	body := html.UnescapeString(sender.sent[0])
+	if got := strings.Count(body, "Lending grew."); got != 1 {
+		t.Fatalf("headline shown %d times, want 1 (backfill must not appear as new)", got)
+	}
+	f, err := p.Store.Filing("0000019617-26-000250")
+	if err != nil || f == nil || f.Facts == nil || !f.Reported {
+		t.Fatalf("backfilled filing = %+v, %v", f, err)
 	}
 }

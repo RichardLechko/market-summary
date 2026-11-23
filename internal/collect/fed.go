@@ -49,6 +49,12 @@ func (f *Fed) Docs(ctx context.Context, feedURL string, exclude []string, since 
 		page, err := f.HTTP.Get(ctx, it.Link)
 		if err == nil {
 			doc.Body = HTMLText(page, "article")
+			// The minutes press release only announces them; read the minutes.
+			if doc.Kind == "minutes" {
+				if full := f.followMinutes(ctx, it.Link, page); full != "" {
+					doc.Body = full
+				}
+			}
 		}
 		if doc.Body == "" {
 			doc.Body = strings.TrimSpace(it.Description)
@@ -56,6 +62,26 @@ func (f *Fed) Docs(ctx context.Context, feedURL string, exclude []string, since 
 		out = append(out, doc)
 	}
 	return out, nil
+}
+
+var minutesLink = regexp.MustCompile(`/monetarypolicy/fomcminutes\d{8}\.htm`)
+
+// followMinutes returns the text of the full FOMC minutes linked from a
+// minutes press release, or "" if there is no such link.
+func (f *Fed) followMinutes(ctx context.Context, pressURL string, page []byte) string {
+	m := minutesLink.Find(page)
+	if m == nil {
+		return ""
+	}
+	u, err := url.Parse(pressURL)
+	if err != nil {
+		return ""
+	}
+	body, err := f.HTTP.Get(ctx, u.Scheme+"://"+u.Host+string(m))
+	if err != nil {
+		return ""
+	}
+	return HTMLText(body, "article")
 }
 
 var (

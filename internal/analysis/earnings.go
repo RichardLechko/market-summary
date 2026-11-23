@@ -92,7 +92,7 @@ func Summarize(rows []EarningsRow, total int) Aggregate {
 			}
 		}
 		switch r.Facts.Guidance {
-		case "raised", "initiated":
+		case "raised":
 			agg.GuidanceRaised++
 		case "maintained":
 			agg.GuidanceHeld++

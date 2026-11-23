@@ -19,13 +19,13 @@ fed_feeds:
 # The Beige Book has no RSS feed; its index page lists the latest report.
 beige_book_index: https://www.federalreserve.gov/monetarypolicy/publications/beige-book-default.htm
 
-# FRED releases shown in "Week ahead" (case-insensitive name match).
+# FRED releases shown in "Week ahead" (exact release name, case-insensitive).
 releases:
   - Consumer Price Index
   - Employment Situation
   - Personal Income and Outlays
   - Gross Domestic Product
-  - Unemployment Insurance Weekly Claims
+  - Unemployment Insurance Weekly Claims Report
   - Advance Monthly Sales for Retail and Food Services
   - Producer Price Index
   - Job Openings and Labor Turnover Survey

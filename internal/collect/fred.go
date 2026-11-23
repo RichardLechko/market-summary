@@ -67,7 +67,7 @@ func (f *FRED) Observations(ctx context.Context, seriesID string, start time.Tim
 }
 
 // ReleaseDates returns scheduled release dates in [from, to] whose release
-// name contains one of names (case-insensitive). An empty names list keeps all.
+// name equals one of names (case-insensitive). An empty names list keeps all.
 func (f *FRED) ReleaseDates(ctx context.Context, from, to time.Time, names []string) ([]model.ReleaseDate, error) {
 	q := url.Values{
 		"api_key":                            {f.Key},
@@ -110,9 +110,8 @@ func matchesAny(name string, names []string) bool {
 	if len(names) == 0 {
 		return true
 	}
-	ln := strings.ToLower(name)
 	for _, n := range names {
-		if strings.Contains(ln, strings.ToLower(n)) {
+		if strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(n)) {
 			return true
 		}
 	}

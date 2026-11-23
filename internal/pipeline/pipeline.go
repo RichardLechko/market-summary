@@ -227,6 +227,9 @@ func (p *Pipeline) macro(ctx context.Context, d *digest.Digest, start, now time.
 		if !daily && !r.New {
 			continue
 		}
+		if daily {
+			r.New = false // daily series always update; the tag is for releases
+		}
 		if _, ok := groups[r.Series.Group]; !ok {
 			order = append(order, r.Series.Group)
 		}
@@ -298,6 +301,7 @@ func (p *Pipeline) earnings(ctx context.Context, d *digest.Digest, start, now ti
 	}
 	history := map[string][]time.Time{}
 	windowDay := dateOnly(start)
+	seasonDay := dateOnly(now.AddDate(0, 0, -p.Cfg.Settings.SeasonDays))
 	for _, c := range p.Cfg.Watchlist {
 		cik, ok := tickers[c.Ticker]
 		if !ok {
@@ -315,6 +319,9 @@ func (p *Pipeline) earnings(ctx context.Context, d *digest.Digest, start, now ti
 				history[c.Ticker] = append(history[c.Ticker], sf.Filed)
 			}
 			if sf.Filed.Before(windowDay) {
+				if !sf.Filed.Before(seasonDay) {
+					p.backfill(ctx, c, cik, sf)
+				}
 				continue
 			}
 			var prior *collect.SubFiling
@@ -453,6 +460,24 @@ func (p *Pipeline) ensureFiling(ctx context.Context, c config.Company, cik int, 
 		p.Log.Error("save filing failed", "accession", sf.Accession, "err", err)
 	}
 	p.Log.Info("extracted filing", "ticker", c.Ticker, "accession", sf.Accession, "earnings", facts.IsEarningsRelease)
+}
+
+// backfill extracts a release from earlier in the season that predates this
+// digest's window (for example on the first run), so the season aggregate is
+// complete. It is stored as already reported and never shown as new.
+func (p *Pipeline) backfill(ctx context.Context, c config.Company, cik int, sf collect.SubFiling) {
+	if p.Sum == nil {
+		return
+	}
+	if f, err := p.Store.Filing(sf.Accession); err != nil || f != nil {
+		return
+	}
+	headline := c
+	headline.Depth = "headline"
+	p.ensureFiling(ctx, headline, cik, sf, nil)
+	if err := p.Store.MarkFilingsReported([]string{sf.Accession}); err != nil {
+		p.Log.Error("mark backfill reported failed", "accession", sf.Accession, "err", err)
+	}
 }
 
 func (p *Pipeline) priorSummary(ctx context.Context, c config.Company, cik int, sf collect.SubFiling) string {

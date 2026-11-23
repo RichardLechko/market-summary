@@ -84,7 +84,7 @@ Rules:
 - All figures must use the same unit, which you record in "unit" (for example "USD millions" or "TWD billions"). EPS is per share in the reporting currency.
 - Revenue is total revenue; for banks use total net revenue. EPS is GAAP diluted EPS; use null if only an adjusted figure is given.
 - Do not compute growth rates or percentages that the release does not state. Code computes comparisons from your figures.
-- guidance: "raised", "maintained", "lowered", "initiated", "withdrawn", or "none" when the release gives no outlook. guidance_note states the outlook in one short sentence, or is empty.
+- guidance: "raised", "maintained", or "lowered" only when the release states the direction or compares the new outlook with the previous one. Use "initiated" for a first outlook (including a next-quarter forecast given without a prior one to compare), "updated" when the outlook changed but the release does not say in which direction, "withdrawn", or "none" when the release gives no outlook. guidance_note states the outlook in one short sentence, or is empty.
 - headline: one plain sentence, at most 30 words, on what mattered most this quarter.
 - summary: when depth is "headline", an empty string. When depth is "standard", one paragraph of 80 to 140 words covering demand, margins, segments, and management tone. When prior quarter notes are provided, say what changed since then.
 - Write for a reader who is learning how markets work. Plain language, no hype, no investment advice.`
@@ -104,7 +104,7 @@ var earningsSchema = json.RawMessage(`{
     "eps_diluted_year_ago": {"anyOf": [{"type": "number"}, {"type": "null"}]},
     "net_income": {"anyOf": [{"type": "number"}, {"type": "null"}]},
     "net_income_year_ago": {"anyOf": [{"type": "number"}, {"type": "null"}]},
-    "guidance": {"type": "string", "enum": ["raised","maintained","lowered","initiated","withdrawn","none"]},
+    "guidance": {"type": "string", "enum": ["raised","maintained","lowered","initiated","updated","withdrawn","none"]},
     "guidance_note": {"type": "string"},
     "headline": {"type": "string"},
     "summary": {"type": "string"}

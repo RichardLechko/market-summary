@@ -58,11 +58,12 @@ func TestFREDReleaseDates(t *testing.T) {
 		fmt.Fprint(w, `{"release_dates":[
 			{"release_id":10,"release_name":"Consumer Price Index","date":"2026-11-25"},
 			{"release_id":99,"release_name":"Some Regional Survey","date":"2026-11-25"},
+			{"release_id":28,"release_name":"Consumer Price Index Excluding Energy Commodities","date":"2026-11-25"},
 			{"release_id":50,"release_name":"Employment Situation","date":"2026-12-20"}]}`)
 	}))
 	defer srv.Close()
 	f := &FRED{HTTP: testClient(), Key: "k", BaseURL: srv.URL}
-	rs, err := f.ReleaseDates(context.Background(), day("2026-11-24"), day("2026-11-30"), []string{"consumer price", "employment situation"})
+	rs, err := f.ReleaseDates(context.Background(), day("2026-11-24"), day("2026-11-30"), []string{"consumer price index", "Employment Situation"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,8 +151,13 @@ func TestFedDocs(t *testing.T) {
 			fmt.Fprintf(w, `<?xml version="1.0"?><rss version="2.0"><channel><title>Fed</title>
 <item><title>Federal Reserve issues FOMC statement</title><link>%[1]s/stmt</link><pubDate>Wed, 18 Nov 2026 19:00:00 GMT</pubDate></item>
 <item><title>Old item</title><link>%[1]s/old</link><pubDate>Wed, 01 Oct 2026 19:00:00 GMT</pubDate></item>
+<item><title>Minutes of the Federal Open Market Committee, October 27-28, 2026</title><link>%[1]s/minutes-pr</link><pubDate>Wed, 18 Nov 2026 19:00:00 GMT</pubDate></item>
 <item><title>Minutes of the Board's discount rate meetings</title><link>%[1]s/dr</link><pubDate>Thu, 19 Nov 2026 19:00:00 GMT</pubDate></item>
 </channel></rss>`, srv.URL)
+		case "/minutes-pr":
+			fmt.Fprint(w, `<div id="article"><p>Minutes released.</p><a href="/monetarypolicy/fomcminutes20261028.htm">HTML</a></div>`)
+		case "/monetarypolicy/fomcminutes20261028.htm":
+			fmt.Fprint(w, `<div id="article"><p>Participants judged inflation elevated.</p></div>`)
 		case "/stmt":
 			fmt.Fprint(w, `<html><body><div id="article"><p>The Committee decided to maintain the target range.</p></div></body></html>`)
 		default:
@@ -164,8 +170,11 @@ func TestFedDocs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(docs) != 1 || docs[0].Kind != "statement" || !strings.Contains(docs[0].Body, "maintain the target range") {
+	if len(docs) != 2 || docs[0].Kind != "statement" || !strings.Contains(docs[0].Body, "maintain the target range") {
 		t.Fatalf("docs = %+v", docs)
+	}
+	if docs[1].Kind != "minutes" || !strings.Contains(docs[1].Body, "inflation elevated") {
+		t.Fatalf("minutes not followed: %+v", docs[1])
 	}
 }
 
