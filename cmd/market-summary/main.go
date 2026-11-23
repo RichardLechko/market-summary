@@ -33,7 +33,7 @@ func main() {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, `usage:
-  market-summary run [--force] [--dry-run [--since DATE]] [--no-open] [--root DIR]
+  market-summary run [--force | --dry-run] [--since DATE] [--no-open] [--root DIR]
   market-summary open [--root DIR]
   market-summary status [--root DIR]
 
@@ -42,7 +42,7 @@ run       build the summary, open it in the browser, and email it with a PDF,
 --force   send now regardless of the last send date
 --dry-run build the summary without emailing or recording it
 --no-open do not open the summary in the browser
---since   with --dry-run, preview the period from a date (YYYY-MM-DD)
+--since   with --dry-run or --force, cover the period from a date (YYYY-MM-DD)
 open      open the latest summary in the browser
 status    show the last send date and when the next summary is due`)
 }
@@ -58,7 +58,7 @@ func run(args []string) int {
 	force := fs.Bool("force", false, "send now regardless of the last send date")
 	dry := fs.Bool("dry-run", false, "build the digest without sending or recording it")
 	noOpen := fs.Bool("no-open", false, "do not open the summary in the browser")
-	since := fs.String("since", "", "with --dry-run: preview the period starting at this date (YYYY-MM-DD)")
+	since := fs.String("since", "", "with --dry-run or --force: cover the period starting at this date (YYYY-MM-DD)")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -133,8 +133,8 @@ func run(args []string) int {
 
 	opts := pipeline.Options{Force: *force, DryRun: *dry, Open: cfg.Settings.OpenInBrowser && !*noOpen, Now: now}
 	if *since != "" {
-		if !*dry {
-			fmt.Fprintln(os.Stderr, "--since works only with --dry-run")
+		if !*dry && !*force {
+			fmt.Fprintln(os.Stderr, "--since works only with --dry-run or --force")
 			return 2
 		}
 		if opts.Since, err = config.ParseDate(*since); err != nil {

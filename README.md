@@ -48,6 +48,7 @@ Each run writes a web page to `data\digests\` (also copied to `latest.html`), op
 go run ./cmd/market-summary run --dry-run                    # build and open the page, no email
 go run ./cmd/market-summary run --dry-run --since 2026-11-16 # preview a past period
 go run ./cmd/market-summary run --force                      # send now
+go run ./cmd/market-summary run --force --since 2026-11-16   # send now, covering a chosen period
 go run ./cmd/market-summary run                              # send only if 7+ days since the last send
 go run ./cmd/market-summary open                             # reopen the latest summary
 go run ./cmd/market-summary status                           # last send, next due date

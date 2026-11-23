@@ -34,7 +34,7 @@ type Options struct {
 	Force  bool      // bypass the gate and send
 	DryRun bool      // bypass the gate, build, do not send or record
 	Open   bool      // open the page in the browser when done
-	Since  time.Time // dry run only: override the window start to preview a period
+	Since  time.Time // with DryRun or Force: override the window start
 	Now    time.Time
 }
 
@@ -115,7 +115,7 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if opts.DryRun && !opts.Since.IsZero() {
+	if !opts.Since.IsZero() {
 		start = opts.Since
 	}
 	p.Log.Info("building digest", "window_start", start.Format(time.RFC3339), "window_end", now.Format(time.RFC3339))
@@ -127,7 +127,7 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 
 	reported := p.macro(ctx, d, start, now)
 	p.fed(ctx, d, start, now)
-	filings := p.earnings(ctx, d, start, now, opts.DryRun && !opts.Since.IsZero())
+	filings := p.earnings(ctx, d, start, now, !opts.Since.IsZero())
 	p.weekAhead(ctx, d, now)
 
 	if p.Sum != nil {
