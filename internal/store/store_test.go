@@ -89,3 +89,34 @@ func TestCache(t *testing.T) {
 		t.Fatalf("cache = %q %v", v, ok)
 	}
 }
+
+func TestCallNotes(t *testing.T) {
+	s := open(t)
+	n := model.CallNote{Accession: "a1", Ticker: "JPM", Quarter: "2026Q3", Period: "Q3 FY2026", Filed: day("2026-10-14"),
+		Notes: model.CallNotes{MatchesPeriod: true, Tone: "Calm.", Themes: []model.CallTheme{{Topic: "Loans", Detail: "Up."}}}}
+	if err := s.SaveCallNote(n); err != nil {
+		t.Fatal(err)
+	}
+	if has, _ := s.HasCallNote("a1"); !has {
+		t.Fatal("HasCallNote false after save")
+	}
+	got, err := s.UnreportedCallNotes()
+	if err != nil || len(got) != 1 || got[0].Notes.Themes[0].Topic != "Loans" || !got[0].Filed.Equal(n.Filed) {
+		t.Fatalf("got %+v %v", got, err)
+	}
+	if err := s.MarkCallNotesReported([]string{"a1"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.UnreportedCallNotes(); len(got) != 0 {
+		t.Error("still unreported")
+	}
+	if err := s.SaveCallNote(n); err != nil { // re-saving keeps the reported flag
+		t.Fatal(err)
+	}
+	if got, _ := s.UnreportedCallNotes(); len(got) != 0 {
+		t.Error("re-save reset reported flag")
+	}
+	if got, _ := s.CallNotesFiledBetween(day("2026-10-13"), day("2026-10-20")); len(got) != 1 {
+		t.Errorf("between: got %d", len(got))
+	}
+}

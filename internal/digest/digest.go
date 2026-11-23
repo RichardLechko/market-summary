@@ -43,6 +43,7 @@ type Digest struct {
 	Macro       []MacroGroup
 	Fed         []model.FedDoc
 	Earnings    []EarningsSector
+	Calls       []CallView // earnings call notes
 	Aggregate   *AggregateView
 	WeekAhead   []AheadItem
 	Notes       []string // sections that were unavailable and why
@@ -246,6 +247,19 @@ func (d *Digest) Brief() string {
 			fmt.Fprintf(&b, "- %s %s: %s %s %s\n", r.Ticker, r.Period, r.Headline, strings.Join(r.Figures, "; "), r.Guidance)
 		}
 	}
+	if len(d.Calls) > 0 {
+		b.WriteString("\nEarnings calls:\n")
+		for _, c := range d.Calls {
+			fmt.Fprintf(&b, "- %s %s: %s", c.Ticker, c.Period, c.Tone)
+			for _, t := range c.Themes {
+				fmt.Fprintf(&b, " %s: %s.", t.Topic, t.Detail)
+			}
+			if c.Outlook != "" {
+				fmt.Fprintf(&b, " Outlook: %s", c.Outlook)
+			}
+			b.WriteString("\n")
+		}
+	}
 	if d.Aggregate != nil {
 		b.WriteString("\nEarnings season so far:\n")
 		for _, l := range append(append([]string{}, d.Aggregate.Lines...), d.Aggregate.Sectors...) {
@@ -259,4 +273,23 @@ func (d *Digest) Brief() string {
 		}
 	}
 	return b.String()
+}
+
+// CallView is one rendered earnings call summary.
+type CallView struct {
+	Ticker       string
+	Company      string
+	Period       string
+	Tone         string
+	Themes       []model.CallTheme
+	AnalystFocus []string
+	Outlook      string
+}
+
+// NewCallView renders stored call notes.
+func NewCallView(n model.CallNote, company string) CallView {
+	return CallView{
+		Ticker: n.Ticker, Company: company, Period: n.Period,
+		Tone: n.Notes.Tone, Themes: n.Notes.Themes, AnalystFocus: n.Notes.AnalystFocus, Outlook: n.Notes.Outlook,
+	}
 }

@@ -108,6 +108,12 @@ td.chg.flag { color: var(--accent); font-weight: 600; }
 .guidance { font-family: var(--sans); font-size: 0.875rem; color: var(--ink-2); margin: 0 0 0.75rem; }
 .guidance b { color: var(--ink); font-weight: 600; }
 .summary { margin: 0; }
+dl.themes { margin: 0 0 0.9rem; }
+dl.themes dt { font-family: var(--sans); font-size: 0.875rem; font-weight: 600; margin: 0.75rem 0 0.1rem; }
+dl.themes dd { margin: 0; }
+.label { font-family: var(--sans); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin: 1rem 0 0.35rem; }
+ul.asked { margin: 0 0 0.75rem; padding-left: 1.1rem; }
+ul.asked li { margin: 0 0 0.35rem; }
 
 .season p { margin: 0 0 0.5rem; }
 .season ul { font-family: var(--sans); font-size: 0.875rem; color: var(--ink-2); padding: 0; margin: 0.75rem 0 0; list-style: none; }
@@ -163,7 +169,7 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
     {{if .Market}}<li><a href="#market">Market</a></li>{{end}}
     {{if .Macro}}<li><a href="#economy">Economy</a></li>{{end}}
     {{if .Fed}}<li><a href="#fed">Federal Reserve</a></li>{{end}}
-    {{if or .Earnings .Aggregate}}<li><a href="#earnings">Earnings</a></li>{{end}}
+    {{if or .Earnings .Calls .Aggregate}}<li><a href="#earnings">Earnings</a></li>{{end}}
     {{if .WeekAhead}}<li><a href="#ahead">Week ahead</a></li>{{end}}
     <li><a href="#terms">Terms</a></li>
   </ol>
@@ -229,7 +235,7 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
 </section>
 {{end}}
 
-{{if or .Earnings .Aggregate}}
+{{if or .Earnings .Calls .Aggregate}}
 <section id="earnings">
   <h2>Earnings</h2>
   {{range .Earnings}}
@@ -247,6 +253,21 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
   </article>
   {{end}}
   {{end}}
+  {{if .Calls}}
+  <h3>On the earnings calls</h3>
+  {{range .Calls}}
+  <article class="report call">
+    <div class="report-head">
+      <span class="ticker">{{.Ticker}}</span>
+      <span class="meta">{{if .Company}}{{.Company}} · {{end}}{{.Period}} call</span>
+    </div>
+    {{if .Tone}}<p class="headline">{{.Tone}}</p>{{end}}
+    {{if .Themes}}<dl class="themes">{{range .Themes}}<dt>{{.Topic}}</dt><dd>{{.Detail}}</dd>{{end}}</dl>{{end}}
+    {{if .AnalystFocus}}<p class="label">What analysts asked</p><ul class="asked">{{range .AnalystFocus}}<li>{{.}}</li>{{end}}</ul>{{end}}
+    {{if .Outlook}}<p class="guidance"><b>Outlook.</b> {{.Outlook}}</p>{{end}}
+  </article>
+  {{end}}
+  {{end}}
   {{with .Aggregate}}
   <div class="season">
     <h3>Season so far</h3>
@@ -254,7 +275,7 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
     {{if .Sectors}}<ul>{{range .Sectors}}<li>{{.}}</li>{{end}}</ul>{{end}}
   </div>
   {{end}}
-  <p class="source">Figures as reported in each company's press release; growth is computed from the release's year-ago column. Source: SEC EDGAR.</p>
+  <p class="source">Figures as reported in each company's press release; growth is computed from the release's year-ago column. Sources: SEC EDGAR; call transcripts from Alpha Vantage.</p>
 </section>
 {{end}}
 

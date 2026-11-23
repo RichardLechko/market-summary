@@ -11,6 +11,7 @@ All free:
 - **FRED** (St. Louis Fed): stock indexes, VIX, Treasury yields, Fed funds rate, CPI, core PCE, payrolls, unemployment, jobless claims, credit spreads, consumer sentiment, oil, and the economic release calendar.
 - **Federal Reserve**: FOMC statements, minutes, and projections (RSS), and the Beige Book.
 - **SEC EDGAR**: earnings press releases (8-K Item 2.02, Exhibit 99.1; 6-K for foreign filers).
+- **Alpha Vantage** (free key): earnings call transcripts for companies set to `depth: deep`.
 
 Claude reads each earnings release and returns the reported figures plus a short summary. Growth rates, the season aggregate, and every other number are computed in code.
 
@@ -29,6 +30,7 @@ Fill in:
 |---|---|
 | `ANTHROPIC_API_KEY` | console.anthropic.com |
 | `FRED_API_KEY` | fredaccount.stlouisfed.org/apikeys (free) |
+| `ALPHAVANTAGE_API_KEY` | alphavantage.co/support/#api-key (free, 25 requests a day). Optional: without it, call notes are skipped. |
 | `SEC_USER_AGENT` | Your own text with a contact email, e.g. `market-summary you@example.com`. SEC rejects requests without one. |
 | `SMTP_USER`, `SMTP_PASSWORD` | A Gmail address and an app password (needs 2-Step Verification; myaccount.google.com/apppasswords) |
 | `MAIL_TO` | Where to send the digest |
@@ -37,8 +39,10 @@ Personal holdings go in `config/watchlist.local.yaml` (gitignored), same format 
 
 ```yaml
 companies:
-  - {ticker: COST, sector: Consumer, depth: standard}
+  - {ticker: COST, sector: Consumer, depth: deep}
 ```
+
+`depth` is `headline` (one line), `standard` (a paragraph compared with last quarter), or `deep` (standard plus notes from the earnings call: tone, main topics, what analysts asked, outlook).
 
 ## Usage
 

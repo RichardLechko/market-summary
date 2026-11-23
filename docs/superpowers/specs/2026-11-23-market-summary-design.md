@@ -1,7 +1,7 @@
 # Market Summary — Design
 
 Date: 2026-11-23
-Status: Phases 0–4 implemented 2026-11-23. Changes made during the build are noted inline as "Implementation note".
+Status: Phases 0–5 implemented 2026-11-23. Changes made during the build are noted inline as "Implementation note".
 
 ## Purpose
 
@@ -20,7 +20,7 @@ Earnings arrive in bursts (roughly six weeks per quarter), so the digest is buil
 
 - The repo is public. No secrets, personal holdings, or generated digests are committed. Secrets live in `.env`; personal watchlist additions live in `config/watchlist.local.yaml`; the database and digest output live in `data/`. All three are gitignored.
 - Runs locally on a Windows PC that is not always on. Not GitHub Actions: logs on a public repo are public, which would expose the digests.
-- Free data sources only: FRED, SEC EDGAR, Federal Reserve RSS.
+- Free data sources only: FRED, SEC EDGAR, Federal Reserve RSS, Alpha Vantage (free tier, transcripts).
 
 ## Architecture
 
@@ -174,5 +174,7 @@ Implementation note: both default to `claude-opus-5-5` at `medium` effort, with 
 **Phase 4 — Earnings aggregate.** Across the bellwethers: share reporting revenue growth, share raising vs cutting guidance, growth by sector. Adds "Expected to report" to Week ahead, inferred from each company's Item 2.02 filing date for the same quarter a year earlier, labeled as an estimate.
 
 **Phase 5 — Deep tier (optional).** Earnings call transcripts for `deep` companies, via Whisper on webcast audio or a paid transcript source. Decided after Phases 1–4 have run for a season.
+
+Implementation note (2026-11-23): Phase 5 uses Alpha Vantage's free EARNINGS_CALL_TRANSCRIPT endpoint instead of Whisper or a paid source. For each deep-tier release filed in the last 30 days without call notes, the pipeline asks for the fiscal quarter named in the release (for example "Q3 FY2027" gives 2027Q3), then the calendar quarter before the filing date. The model confirms the transcript covers the release's period before its notes are used, so a year-old call under the same label is rejected. Notes (tone, two to four themes, analyst questions, outlook) are stored per release, shown once under "On the earnings calls", and retried on later runs until the transcript appears. The free tier allows 25 requests a day; on the limit the run stops asking and continues next time. JPM, AAPL, MSFT, NVDA and WMT are deep by default.
 
 **Phase 6 — AWS Lambda (optional).** Run the same binary on Lambda with an EventBridge weekly schedule, SQLite file in S3, secrets in SSM Parameter Store. Only if local runs prove unreliable.

@@ -53,6 +53,12 @@ func readPage(t *testing.T, path string) string {
 type fakeCaller struct{ extractions atomic.Int32 }
 
 func (f *fakeCaller) Call(_ context.Context, req summarize.Request) (string, error) {
+	if strings.Contains(req.System, "earnings call transcripts") {
+		if strings.Contains(req.User, "RIGHT CALL") {
+			return `{"matches_period":true,"tone":"Management sounded confident.","themes":[{"topic":"Deposits","detail":"Deposits rose."}],"analyst_focus":["Analysts asked about credit losses."],"outlook":"Expects steady lending."}`, nil
+		}
+		return `{"matches_period":false,"tone":"","themes":[],"analyst_focus":[],"outlook":""}`, nil
+	}
 	if req.Schema != nil {
 		n := f.extractions.Add(1)
 		return fmt.Sprintf(`{"is_earnings_release":true,"company":"JPMorgan Chase","period":"Q%d 2026","unit":"USD millions",

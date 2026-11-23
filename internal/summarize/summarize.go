@@ -156,3 +156,70 @@ Write 150 to 250 words in two or three short paragraphs. No headings, no bullet 
 func (s *Summarizer) Overview(ctx context.Context, brief string) (string, error) {
 	return s.call(ctx, Request{Model: s.OverviewModel, Effort: s.Effort, System: overviewSystem, User: "<brief>\n" + brief + "\n</brief>"})
 }
+
+// CallInput describes one earnings call transcript to summarize.
+type CallInput struct {
+	Ticker         string
+	Company        string
+	Period         string
+	ReleaseSummary string // what the press release said, to avoid repeating it
+	Text           string
+}
+
+const callSystem = `You read earnings call transcripts for a personal market digest. The reader already has the press release figures; the call is where management explains them and analysts push back. Report what the call adds.
+
+Rules:
+- matches_period: true only if the call discusses results for the period given above. If it covers a different quarter or year, set it to false and keep the other fields short.
+- tone: one sentence on management's tone (confident, cautious, defensive) and what in the call shows it.
+- themes: the 2 to 4 topics management spent the most time on. topic is a few words; detail is one or two sentences on what was said, with any figure stated on the call. Skip themes that only repeat the press release.
+- analyst_focus: 1 to 3 short sentences on what analysts pressed on in Q&A and how management answered.
+- outlook: one sentence on what management said about the coming quarters, or an empty string if nothing new.
+- Use only what is in the transcript. Copy figures as stated; do not compute new ones.
+- Write for a reader who is learning how markets work. Plain language, no hype, no investment advice. Explain business terms in a few words the first time.`
+
+var callSchema = json.RawMessage(`{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["matches_period","tone","themes","analyst_focus","outlook"],
+  "properties": {
+    "matches_period": {"type": "boolean"},
+    "tone": {"type": "string"},
+    "themes": {"type": "array", "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topic","detail"],
+      "properties": {"topic": {"type": "string"}, "detail": {"type": "string"}}
+    }},
+    "analyst_focus": {"type": "array", "items": {"type": "string"}},
+    "outlook": {"type": "string"}
+  }
+}`)
+
+// maxCallChars bounds the transcript sent to the model (about 60k tokens).
+const maxCallChars = 240000
+
+// CallNotes summarizes an earnings call transcript.
+func (s *Summarizer) CallNotes(ctx context.Context, in CallInput) (model.CallNotes, error) {
+	text := in.Text
+	if len(text) > maxCallChars {
+		text = text[:maxCallChars]
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Ticker: %s\nCompany: %s\nPeriod: %s\n\n", in.Ticker, in.Company, in.Period)
+	if in.ReleaseSummary != "" {
+		fmt.Fprintf(&b, "<press_release_summary>\n%s\n</press_release_summary>\n\n", in.ReleaseSummary)
+	}
+	fmt.Fprintf(&b, "<transcript>\n%s\n</transcript>", text)
+
+	out, err := s.call(ctx, Request{
+		Model: s.ExtractionModel, Effort: s.Effort, System: callSystem, User: b.String(), Schema: callSchema,
+	})
+	if err != nil {
+		return model.CallNotes{}, err
+	}
+	var notes model.CallNotes
+	if err := json.Unmarshal([]byte(out), &notes); err != nil {
+		return model.CallNotes{}, fmt.Errorf("parse call notes for %s: %w", in.Ticker, err)
+	}
+	return notes, nil
+}

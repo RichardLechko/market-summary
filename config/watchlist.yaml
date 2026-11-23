@@ -3,22 +3,23 @@
 # replaces the one here.
 #
 # depth: headline (one line), standard (paragraph vs. last quarter),
-#        deep (reserved for call transcripts; behaves as standard for now)
+#        deep (standard plus notes from the earnings call transcript;
+#              needs ALPHAVANTAGE_API_KEY, free tier allows 25 calls a day)
 # forms: filings that carry earnings releases. Default [8-K] (Item 2.02).
 #        Foreign filers such as TSMC use 6-K.
 
 companies:
-  - {ticker: JPM,   sector: Banks,              depth: standard}
+  - {ticker: JPM,   sector: Banks,              depth: deep}
   - {ticker: BAC,   sector: Banks,              depth: headline}
 
-  - {ticker: AAPL,  sector: Mega-cap tech,      depth: standard}
-  - {ticker: MSFT,  sector: Mega-cap tech,      depth: standard}
-  - {ticker: NVDA,  sector: Mega-cap tech,      depth: standard}
+  - {ticker: AAPL,  sector: Mega-cap tech,      depth: deep}
+  - {ticker: MSFT,  sector: Mega-cap tech,      depth: deep}
+  - {ticker: NVDA,  sector: Mega-cap tech,      depth: deep}
   - {ticker: AMZN,  sector: Mega-cap tech,      depth: headline}
   - {ticker: GOOGL, sector: Mega-cap tech,      depth: headline}
   - {ticker: META,  sector: Mega-cap tech,      depth: headline}
 
-  - {ticker: WMT,   sector: Consumer,           depth: standard}
+  - {ticker: WMT,   sector: Consumer,           depth: deep}
   - {ticker: COST,  sector: Consumer,           depth: headline}
   - {ticker: HD,    sector: Consumer,           depth: headline}
 

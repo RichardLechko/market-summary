@@ -171,6 +171,7 @@ func newPipeline(cfg *config.Config, st *store.Store, log *slog.Logger) *pipelin
 		Fed:   &collect.Fed{HTTP: general},
 		// SEC allows 10 requests/second; stay under it.
 		EDGAR: &collect.EDGAR{HTTP: httpx.New(sec.SECUserAgent, 120*time.Millisecond)},
+		Calls: &collect.Transcripts{HTTP: general, Key: sec.AlphaVantageKey},
 		Mail: digest.Mail{
 			Host: sec.SMTPHost, Port: sec.SMTPPort, User: sec.SMTPUser,
 			Password: sec.SMTPPassword, From: sec.MailFrom, To: sec.MailTo,

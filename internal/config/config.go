@@ -71,15 +71,16 @@ type Settings struct {
 
 // Secrets come from the environment.
 type Secrets struct {
-	AnthropicKey string
-	FREDKey      string
-	SECUserAgent string
-	SMTPHost     string
-	SMTPPort     string
-	SMTPUser     string
-	SMTPPassword string
-	MailFrom     string
-	MailTo       []string
+	AnthropicKey    string
+	FREDKey         string
+	AlphaVantageKey string
+	SECUserAgent    string
+	SMTPHost        string
+	SMTPPort        string
+	SMTPUser        string
+	SMTPPassword    string
+	MailFrom        string
+	MailTo          []string
 }
 
 // Config is everything the pipeline needs.
@@ -235,15 +236,16 @@ func secretsFromEnv() Secrets {
 		from = os.Getenv("SMTP_USER")
 	}
 	return Secrets{
-		AnthropicKey: os.Getenv("ANTHROPIC_API_KEY"),
-		FREDKey:      os.Getenv("FRED_API_KEY"),
-		SECUserAgent: os.Getenv("SEC_USER_AGENT"),
-		SMTPHost:     host,
-		SMTPPort:     port,
-		SMTPUser:     os.Getenv("SMTP_USER"),
-		SMTPPassword: os.Getenv("SMTP_PASSWORD"),
-		MailFrom:     from,
-		MailTo:       to,
+		AnthropicKey:    os.Getenv("ANTHROPIC_API_KEY"),
+		FREDKey:         os.Getenv("FRED_API_KEY"),
+		AlphaVantageKey: os.Getenv("ALPHAVANTAGE_API_KEY"),
+		SECUserAgent:    os.Getenv("SEC_USER_AGENT"),
+		SMTPHost:        host,
+		SMTPPort:        port,
+		SMTPUser:        os.Getenv("SMTP_USER"),
+		SMTPPassword:    os.Getenv("SMTP_PASSWORD"),
+		MailFrom:        from,
+		MailTo:          to,
 	}
 }
 

@@ -53,6 +53,15 @@ CREATE TABLE IF NOT EXISTS filings (
 	reported  INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS filings_ticker_filed ON filings (ticker, filed);
+CREATE TABLE IF NOT EXISTS call_notes (
+	accession TEXT PRIMARY KEY,
+	ticker    TEXT NOT NULL,
+	quarter   TEXT NOT NULL,
+	period    TEXT NOT NULL DEFAULT '',
+	filed     TEXT NOT NULL,
+	notes     TEXT NOT NULL,
+	reported  INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS llm_cache (
 	key     TEXT PRIMARY KEY,
 	output  TEXT NOT NULL,
@@ -335,4 +344,72 @@ func (s *Store) CachePut(key, output string) error {
 		ON CONFLICT (key) DO UPDATE SET output = excluded.output`,
 		key, output, time.Now().Format(time.RFC3339))
 	return err
+}
+
+// SaveCallNote stores the summary of an earnings call, keeping its reported flag.
+func (s *Store) SaveCallNote(c model.CallNote) error {
+	b, err := json.Marshal(c.Notes)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`INSERT INTO call_notes (accession, ticker, quarter, period, filed, notes)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT (accession) DO UPDATE SET quarter = excluded.quarter, period = excluded.period, notes = excluded.notes`,
+		c.Accession, c.Ticker, c.Quarter, c.Period, c.Filed.Format(dateFmt), string(b))
+	return err
+}
+
+// HasCallNote reports whether a call summary exists for a release.
+func (s *Store) HasCallNote(accession string) (bool, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM call_notes WHERE accession = ?`, accession).Scan(&n)
+	return n > 0, err
+}
+
+// UnreportedCallNotes returns call summaries not yet included in a sent digest, oldest first.
+func (s *Store) UnreportedCallNotes() ([]model.CallNote, error) {
+	return s.queryCallNotes(`WHERE reported = 0 ORDER BY filed, ticker`)
+}
+
+// CallNotesFiledBetween returns call summaries for releases with from < filed <= to, oldest first.
+func (s *Store) CallNotesFiledBetween(from, to time.Time) ([]model.CallNote, error) {
+	return s.queryCallNotes(`WHERE filed > ? AND filed <= ? ORDER BY filed, ticker`,
+		from.Format(dateFmt), to.Format(dateFmt))
+}
+
+// MarkCallNotesReported flags call summaries as included in a sent digest.
+func (s *Store) MarkCallNotesReported(accessions []string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	for _, a := range accessions {
+		if _, err := tx.Exec(`UPDATE call_notes SET reported = 1 WHERE accession = ?`, a); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *Store) queryCallNotes(where string, args ...any) ([]model.CallNote, error) {
+	rows, err := s.db.Query(`SELECT accession, ticker, quarter, period, filed, notes, reported FROM call_notes `+where, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.CallNote
+	for rows.Next() {
+		var c model.CallNote
+		var filed, notes string
+		if err := rows.Scan(&c.Accession, &c.Ticker, &c.Quarter, &c.Period, &filed, &notes, &c.Reported); err != nil {
+			return nil, err
+		}
+		c.Filed, _ = time.ParseInLocation(dateFmt, filed, time.Local)
+		if err := json.Unmarshal([]byte(notes), &c.Notes); err != nil {
+			return nil, fmt.Errorf("call note %s: %w", c.Accession, err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
 }

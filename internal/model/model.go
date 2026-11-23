@@ -51,3 +51,30 @@ type EarningsFacts struct {
 	Headline          string   `json:"headline"`
 	Summary           string   `json:"summary"`
 }
+
+// CallNote is the summary of one earnings call, tied to the earnings release
+// it discusses.
+type CallNote struct {
+	Accession string // the earnings release's accession number
+	Ticker    string
+	Quarter   string // provider quarter label, e.g. 2026Q3
+	Period    string // the release's period label, e.g. Q3 FY2027
+	Filed     time.Time
+	Notes     CallNotes
+	Reported  bool // included in a sent digest
+}
+
+// CallNotes is what the model takes from an earnings call transcript.
+type CallNotes struct {
+	MatchesPeriod bool        `json:"matches_period"`
+	Tone          string      `json:"tone"`
+	Themes        []CallTheme `json:"themes"`
+	AnalystFocus  []string    `json:"analyst_focus"`
+	Outlook       string      `json:"outlook"`
+}
+
+// CallTheme is one topic management spent time on.
+type CallTheme struct {
+	Topic  string `json:"topic"`
+	Detail string `json:"detail"`
+}

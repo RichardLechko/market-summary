@@ -56,6 +56,7 @@ type Pipeline struct {
 	FRED  *collect.FRED
 	Fed   *collect.Fed
 	EDGAR *collect.EDGAR
+	Calls *collect.Transcripts  // earnings call transcripts; nil disables call notes
 	Sum   *summarize.Summarizer // nil when no API key is configured
 	Mail  Sender
 	// PrintPDF renders the page to a PDF for the email; nil skips the PDF.
@@ -128,6 +129,7 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 	reported := p.macro(ctx, d, start, now)
 	p.fed(ctx, d, start, now)
 	filings := p.earnings(ctx, d, start, now, !opts.Since.IsZero())
+	callNotes := p.calls(ctx, d, start, now, !opts.Since.IsZero())
 	p.weekAhead(ctx, d, now)
 
 	if p.Sum != nil {
@@ -207,6 +209,9 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 	}
 	if err := p.Store.MarkFilingsReported(filings); err != nil {
 		return res, fmt.Errorf("mark filings reported: %w", err)
+	}
+	if err := p.Store.MarkCallNotesReported(callNotes); err != nil {
+		return res, fmt.Errorf("mark call notes reported: %w", err)
 	}
 	return res, nil
 }
