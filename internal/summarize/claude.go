@@ -33,8 +33,11 @@ func (c *Claude) Call(ctx context.Context, req Request) (string, error) {
 		Messages: []anthropic.BetaMessageParam{
 			anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(req.User)),
 		},
-		Fallbacks: anthropic.BetaFallbacksParamOfDefault(),
-		Betas:     []anthropic.AnthropicBeta{anthropic.AnthropicBetaServerSideFallback2026_07_01},
+	}
+	// Haiku has no server-side refusal fallback; Opus, Sonnet, and Fable do.
+	if !strings.Contains(req.Model, "haiku") {
+		params.Fallbacks = anthropic.BetaFallbacksParamOfDefault()
+		params.Betas = []anthropic.AnthropicBeta{anthropic.AnthropicBetaServerSideFallback2026_07_01}
 	}
 	params.OutputConfig.Effort = anthropic.BetaOutputConfigEffort(req.Effort)
 	if req.Schema != nil {
