@@ -18,6 +18,7 @@ import (
 
 	"github.com/RichardLechko/market-summary/internal/collect"
 	"github.com/RichardLechko/market-summary/internal/config"
+	"github.com/RichardLechko/market-summary/internal/digest"
 	"github.com/RichardLechko/market-summary/internal/httpx"
 	"github.com/RichardLechko/market-summary/internal/store"
 	"github.com/RichardLechko/market-summary/internal/summarize"
@@ -27,15 +28,26 @@ var now0 = time.Date(2026, 11, 24, 9, 0, 0, 0, time.Local)
 
 type fakeSender struct {
 	sent []string
+	atts [][]digest.Attachment
 	err  error
 }
 
-func (f *fakeSender) Send(subject, body string) error {
+func (f *fakeSender) Send(subject, body string, atts ...digest.Attachment) error {
 	if f.err != nil {
 		return f.err
 	}
 	f.sent = append(f.sent, subject+"\n"+body)
+	f.atts = append(f.atts, atts)
 	return nil
+}
+
+func readPage(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return html.UnescapeString(string(b))
 }
 
 type fakeCaller struct{ extractions atomic.Int32 }
@@ -160,7 +172,7 @@ func TestRunEndToEnd(t *testing.T) {
 	if !res.Sent || len(sender.sent) != 1 {
 		t.Fatalf("first run not sent: %+v", res)
 	}
-	body := html.UnescapeString(sender.sent[0])
+	body := readPage(t, res.Path)
 	for _, want := range []string{
 		"Market summary: Nov 17 – Nov 24",
 		"Overview paragraph.",
@@ -196,7 +208,7 @@ func TestRunEndToEnd(t *testing.T) {
 	if err != nil || !res.Sent {
 		t.Fatalf("third run: %+v %v", res, err)
 	}
-	third := html.UnescapeString(sender.sent[1])
+	third := readPage(t, res.Path)
 	if strings.Contains(third, "Lending grew.") {
 		t.Error("already-reported filing repeated")
 	}
@@ -253,19 +265,45 @@ func TestBackfillSeasonNotShown(t *testing.T) {
 	sender := &fakeSender{}
 	p := newTestPipeline(t, srv, caller, sender)
 	p.Cfg.Watchlist[0].Depth = "headline" // no prior-quarter extraction
-	if _, err := p.Run(context.Background(), Options{Now: now0}); err != nil {
+	res, err := p.Run(context.Background(), Options{Now: now0})
+	if err != nil {
 		t.Fatal(err)
 	}
 	// Current release (Nov 20) plus the Oct 14 release backfilled for the season; Aug 14 is outside 100 days.
 	if n := caller.extractions.Load(); n != 2 {
 		t.Fatalf("extractions = %d, want 2", n)
 	}
-	body := html.UnescapeString(sender.sent[0])
+	body := readPage(t, res.Path)
 	if got := strings.Count(body, "Lending grew."); got != 1 {
 		t.Fatalf("headline shown %d times, want 1 (backfill must not appear as new)", got)
 	}
 	f, err := p.Store.Filing("0000019617-26-000250")
 	if err != nil || f == nil || f.Facts == nil || !f.Reported {
 		t.Fatalf("backfilled filing = %+v, %v", f, err)
+	}
+}
+
+func TestEmailAttachesPDF(t *testing.T) {
+	srv := fixtureServer(t)
+	sender := &fakeSender{}
+	p := newTestPipeline(t, srv, &fakeCaller{}, sender)
+	opened := ""
+	p.PrintPDF = func(_ context.Context, _, pdfPath string) error {
+		return os.WriteFile(pdfPath, []byte("%PDF-1.7 fake"), 0o644)
+	}
+	p.Open = func(path string) error { opened = path; return nil }
+	res, err := p.Run(context.Background(), Options{Now: now0, Open: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opened != res.Path {
+		t.Errorf("opened %q, want %q", opened, res.Path)
+	}
+	if len(sender.atts[0]) != 1 || sender.atts[0][0].ContentType != "application/pdf" || string(sender.atts[0][0].Data) != "%PDF-1.7 fake" {
+		t.Fatalf("attachments = %+v", sender.atts[0])
+	}
+	email := html.UnescapeString(sender.sent[0])
+	if !strings.Contains(email, "Overview paragraph.") || !strings.Contains(email, "attached as a PDF") || strings.Contains(email, "Lending grew.") {
+		t.Fatalf("email body should be the short version:\n%s", email)
 	}
 }

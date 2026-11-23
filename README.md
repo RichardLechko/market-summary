@@ -42,12 +42,18 @@ companies:
 
 ## Usage
 
+Each run writes a web page to `data\digests\` (also copied to `latest.html`), opens it in your browser, and emails a short note with the same page attached as a PDF.
+
 ```powershell
-go run ./cmd/market-summary run --dry-run   # build the digest into data\digests\ without sending
-go run ./cmd/market-summary run --force     # send now
-go run ./cmd/market-summary run             # send only if 7+ days since the last send
-go run ./cmd/market-summary status          # last send, next due date
+go run ./cmd/market-summary run --dry-run                    # build and open the page, no email
+go run ./cmd/market-summary run --dry-run --since 2026-11-16 # preview a past period
+go run ./cmd/market-summary run --force                      # send now
+go run ./cmd/market-summary run                              # send only if 7+ days since the last send
+go run ./cmd/market-summary open                             # reopen the latest summary
+go run ./cmd/market-summary status                           # last send, next due date
 ```
+
+The PDF is printed by Edge or Chrome in headless mode; set `browser_path` in `config/settings.yaml` if neither is in the default location. Set `open_in_browser: false` to stop the page opening after each run.
 
 Schedule it:
 

@@ -11,6 +11,11 @@ extraction_model: claude-haiku-5-5
 overview_model: claude-haiku-5-5
 effort: medium
 
+# Open the summary page in your default browser after each run.
+open_in_browser: true
+# Browser used to make the emailed PDF. Empty finds Edge or Chrome.
+browser_path: ""
+
 # Federal Reserve RSS feeds. Items whose title contains an exclude phrase are skipped.
 fed_feeds:
   - url: https://www.federalreserve.gov/feeds/press_monetary.xml

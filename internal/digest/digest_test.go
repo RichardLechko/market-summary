@@ -35,7 +35,7 @@ func sample() *Digest {
 
 func TestRender(t *testing.T) {
 	d := sample()
-	out, err := d.Render()
+	out, err := d.RenderPage()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,11 +43,12 @@ func TestRender(t *testing.T) {
 	text := html.UnescapeString(out)
 	for _, want := range []string{
 		"Market summary: Nov 17 – Nov 25",
-		"<p style=\"margin:0 0 14px;\">Second paragraph.</p>",
+		"Wednesday, November 25, 2026",
+		"<p>Second paragraph.</p>",
 		"S&P 500",
 		"Revenue 60,000 USD millions (+50.0% y/y)",
 		"Diluted EPS 1.50 vs 1.00 a year ago (+50.0% y/y)",
-		"Guidance raised: Q4 revenue outlook above consensus.",
+		"Guidance raised.</b> Q4 revenue outlook above consensus.",
 		"Data center demand <strong>.",
 		"Consumer Price Index",
 		"A note.",
@@ -56,7 +57,7 @@ func TestRender(t *testing.T) {
 			t.Errorf("rendered HTML missing %q", want)
 		}
 	}
-	if strings.Contains(out, "Federal Reserve</h2>") {
+	if strings.Contains(out, "<h2>Federal Reserve</h2>") {
 		t.Error("empty Fed section should be omitted")
 	}
 	if strings.Contains(out, "<strong>") {
@@ -87,5 +88,34 @@ func TestMessage(t *testing.T) {
 func TestMailValidate(t *testing.T) {
 	if err := (Mail{}).Validate(); err == nil || !strings.Contains(err.Error(), "SMTP_PASSWORD") {
 		t.Fatalf("Validate = %v", err)
+	}
+}
+
+func TestRenderEmail(t *testing.T) {
+	d := sample()
+	with, err := d.RenderEmail(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	without, _ := d.RenderEmail(false)
+	if !strings.Contains(with, "attached as a PDF") || !strings.Contains(without, "latest.html") {
+		t.Fatal("email footer wrong")
+	}
+	if strings.Contains(with, "NVDA") {
+		t.Fatal("email should carry only the overview")
+	}
+}
+
+func TestMessageWithAttachment(t *testing.T) {
+	msg, err := Message("a@example.com", []string{"b@example.com"}, "s", "<p>hi</p>", time.Now(),
+		Attachment{Name: "x.pdf", ContentType: "application/pdf", Data: []byte("%PDF")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(msg)
+	for _, want := range []string{"multipart/mixed", `filename="x.pdf"`, "JVBERg=="} {
+		if !strings.Contains(s, want) {
+			t.Errorf("message missing %q", want)
+		}
 	}
 }

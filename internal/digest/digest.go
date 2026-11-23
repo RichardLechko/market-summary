@@ -1,4 +1,5 @@
-// Package digest assembles the email, renders it to HTML, and sends it.
+// Package digest assembles the summary, renders it as a web page and a short
+// email, and sends it.
 package digest
 
 import (
@@ -14,13 +15,23 @@ import (
 	"github.com/RichardLechko/market-summary/internal/model"
 )
 
-//go:embed template.html
-var templateHTML string
+var (
+	//go:embed page.html
+	pageHTML string
+	//go:embed email.html
+	emailHTML string
+)
 
-var tmpl = template.Must(template.New("digest").Funcs(template.FuncMap{
-	"date":  func(t time.Time) string { return t.Format("Mon Jan 2") },
-	"paras": paragraphs,
-}).Parse(templateHTML))
+var funcs = template.FuncMap{
+	"date":     func(t time.Time) string { return t.Format("Mon Jan 2") },
+	"dateLong": func(t time.Time) string { return t.Format("Monday, January 2, 2006") },
+	"paras":    paragraphs,
+}
+
+var (
+	pageTmpl  = template.Must(template.New("page").Funcs(funcs).Parse(pageHTML))
+	emailTmpl = template.Must(template.New("email").Funcs(funcs).Parse(emailHTML))
+)
 
 // Digest is everything the email shows.
 type Digest struct {
@@ -55,10 +66,13 @@ type EarningsView struct {
 	Period   string
 	Filed    time.Time
 	Figures  []string
-	Guidance string
-	Headline string
-	Summary  string
-	Link     string
+	Guidance string // label and note combined, for the brief
+	// GuidanceLabel is e.g. "Guidance raised"; GuidanceNote is the outlook sentence.
+	GuidanceLabel string
+	GuidanceNote  string
+	Headline      string
+	Summary       string
+	Link          string
 }
 
 // AggregateView is the season-to-date summary across the watchlist.
@@ -78,13 +92,27 @@ func (d *Digest) Subject() string {
 	return fmt.Sprintf("Market summary: %s – %s", d.WindowStart.Format("Jan 2"), d.WindowEnd.Format("Jan 2"))
 }
 
-// Render returns the digest as HTML.
-func (d *Digest) Render() (string, error) {
+// RenderPage returns the full summary as a standalone web page.
+func (d *Digest) RenderPage() (string, error) {
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, struct {
+	if err := pageTmpl.Execute(&buf, struct {
 		*Digest
 		Subject string
 	}{d, d.Subject()}); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+// RenderEmail returns the short email body: the opening summary and a pointer
+// to the attached PDF.
+func (d *Digest) RenderEmail(pdfAttached bool) (string, error) {
+	var buf bytes.Buffer
+	if err := emailTmpl.Execute(&buf, struct {
+		*Digest
+		Subject     string
+		PDFAttached bool
+	}{d, d.Subject(), pdfAttached}); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -132,7 +160,9 @@ func NewEarningsView(r analysis.EarningsRow, link string) EarningsView {
 	switch f.Guidance {
 	case "", "none":
 	default:
-		v.Guidance = "Guidance " + f.Guidance
+		v.GuidanceLabel = "Guidance " + f.Guidance
+		v.GuidanceNote = f.GuidanceNote
+		v.Guidance = v.GuidanceLabel
 		if f.GuidanceNote != "" {
 			v.Guidance += ": " + f.GuidanceNote
 		}

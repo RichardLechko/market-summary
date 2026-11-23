@@ -29,6 +29,7 @@ type Series struct {
 	Kind      string  `yaml:"kind"`
 	Delta     string  `yaml:"delta"`
 	Unit      string  `yaml:"unit"`
+	About     string  `yaml:"about"`
 	Threshold float64 `yaml:"flag_threshold"`
 }
 
@@ -63,6 +64,8 @@ type Settings struct {
 	Effort          string   `yaml:"effort"`
 	FedFeeds        []Feed   `yaml:"fed_feeds"`
 	BeigeBookIndex  string   `yaml:"beige_book_index"`
+	OpenInBrowser   bool     `yaml:"open_in_browser"`
+	BrowserPath     string   `yaml:"browser_path"`
 	Releases        []string `yaml:"releases"`
 }
 

@@ -135,6 +135,8 @@ One email per run, sections in this order. A section with no new data is omitted
 
 The subject line states the coverage window (for example "Market summary: Nov 17 – Nov 25"). Each section ends with a short source line.
 
+Implementation note (2026-11-23): reading the full digest in an email body was rejected. The full summary is now a standalone web page (editorial layout, Newsreader and IBM Plex Sans, light and dark themes, print styles) written to `data/digests/` and opened in the default browser after each run. The email carries only the opening summary, with the page attached as a PDF printed by headless Edge or Chrome. Each series has a one-line plain-language description, the page ends with a glossary of terms, and the prompts explain jargon on first use.
+
 ## Claude usage
 
 - Models are set in `config/settings.yaml` (`extraction_model`, `overview_model`, `effort`)

@@ -2,7 +2,8 @@
 //
 // Usage:
 //
-//	market-summary run [--force] [--dry-run] [--root DIR]
+//	market-summary run [--force] [--dry-run] [--no-open] [--root DIR]
+//	market-summary open [--root DIR]
 //	market-summary status [--root DIR]
 package main
 
@@ -32,13 +33,18 @@ func main() {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, `usage:
-  market-summary run [--force] [--dry-run] [--root DIR]
+  market-summary run [--force] [--dry-run [--since DATE]] [--no-open] [--root DIR]
+  market-summary open [--root DIR]
   market-summary status [--root DIR]
 
-run       build and email the digest if 7+ days have passed since the last one
+run       build the summary, open it in the browser, and email it with a PDF,
+          if 7+ days have passed since the last one
 --force   send now regardless of the last send date
---dry-run build the digest to data/digests without sending or recording it
-status    show the last send date and when the next digest is due`)
+--dry-run build the summary without emailing or recording it
+--no-open do not open the summary in the browser
+--since   with --dry-run, preview the period from a date (YYYY-MM-DD)
+open      open the latest summary in the browser
+status    show the last send date and when the next summary is due`)
 }
 
 func run(args []string) int {
@@ -51,6 +57,8 @@ func run(args []string) int {
 	root := fs.String("root", ".", "project directory containing config/ and .env")
 	force := fs.Bool("force", false, "send now regardless of the last send date")
 	dry := fs.Bool("dry-run", false, "build the digest without sending or recording it")
+	noOpen := fs.Bool("no-open", false, "do not open the summary in the browser")
+	since := fs.String("since", "", "with --dry-run: preview the period starting at this date (YYYY-MM-DD)")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -80,6 +88,17 @@ func run(args []string) int {
 	switch cmd {
 	case "status":
 		return status(p)
+	case "open":
+		latest := filepath.Join(cfg.DataDir(), "digests", "latest.html")
+		if _, err := os.Stat(latest); err != nil {
+			fmt.Fprintln(os.Stderr, "no summary yet; run: market-summary run --dry-run")
+			return 1
+		}
+		if err := digest.OpenInBrowser(latest); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
 	case "run":
 	default:
 		usage()
@@ -112,7 +131,18 @@ func run(args []string) int {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
-	res, err := p.Run(ctx, pipeline.Options{Force: *force, DryRun: *dry, Now: now})
+	opts := pipeline.Options{Force: *force, DryRun: *dry, Open: cfg.Settings.OpenInBrowser && !*noOpen, Now: now}
+	if *since != "" {
+		if !*dry {
+			fmt.Fprintln(os.Stderr, "--since works only with --dry-run")
+			return 2
+		}
+		if opts.Since, err = config.ParseDate(*since); err != nil {
+			fmt.Fprintln(os.Stderr, "--since:", err)
+			return 2
+		}
+	}
+	res, err := p.Run(ctx, opts)
 	if err != nil {
 		p.Log.Error("run failed", "err", err)
 		return 1
@@ -120,9 +150,12 @@ func run(args []string) int {
 	switch {
 	case res.NotDue:
 	case res.Sent:
-		fmt.Printf("Sent %q. Copy at %s\n", res.Subject, res.Path)
+		fmt.Printf("Sent %q. Page at %s\n", res.Subject, res.Path)
 	default:
-		fmt.Printf("Dry run: digest written to %s\n", res.Path)
+		fmt.Printf("Dry run: page at %s\n", res.Path)
+		if res.PDFPath != "" {
+			fmt.Printf("PDF at %s\n", res.PDFPath)
+		}
 	}
 	return 0
 }
@@ -143,6 +176,14 @@ func newPipeline(cfg *config.Config, st *store.Store, log *slog.Logger) *pipelin
 			Password: sec.SMTPPassword, From: sec.MailFrom, To: sec.MailTo,
 		},
 	}
+	if browser, err := digest.FindBrowser(cfg.Settings.BrowserPath); err != nil {
+		log.Warn("PDF disabled", "err", err)
+	} else {
+		p.PrintPDF = func(ctx context.Context, htmlPath, pdfPath string) error {
+			return digest.PrintPDF(ctx, browser, htmlPath, pdfPath)
+		}
+	}
+	p.Open = digest.OpenInBrowser
 	if sec.AnthropicKey != "" {
 		p.Sum = &summarize.Summarizer{
 			Caller:          summarize.NewClaude(sec.AnthropicKey),

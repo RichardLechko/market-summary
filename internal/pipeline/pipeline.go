@@ -31,8 +31,10 @@ const (
 
 // Options control one run.
 type Options struct {
-	Force  bool // bypass the gate and send
-	DryRun bool // bypass the gate, build, do not send or record
+	Force  bool      // bypass the gate and send
+	DryRun bool      // bypass the gate, build, do not send or record
+	Open   bool      // open the page in the browser when done
+	Since  time.Time // dry run only: override the window start to preview a period
 	Now    time.Time
 }
 
@@ -41,6 +43,7 @@ type Result struct {
 	NotDue       bool
 	NextEligible time.Time
 	Path         string
+	PDFPath      string
 	Sent         bool
 	Subject      string
 }
@@ -55,11 +58,15 @@ type Pipeline struct {
 	EDGAR *collect.EDGAR
 	Sum   *summarize.Summarizer // nil when no API key is configured
 	Mail  Sender
+	// PrintPDF renders the page to a PDF for the email; nil skips the PDF.
+	PrintPDF func(ctx context.Context, htmlPath, pdfPath string) error
+	// Open shows the page in the browser; nil disables it.
+	Open func(path string) error
 }
 
-// Sender delivers a rendered digest.
+// Sender delivers the email.
 type Sender interface {
-	Send(subject, html string) error
+	Send(subject, html string, atts ...digest.Attachment) error
 }
 
 // Gate reports whether a gated run is due.
@@ -108,6 +115,9 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	if opts.DryRun && !opts.Since.IsZero() {
+		start = opts.Since
+	}
 	p.Log.Info("building digest", "window_start", start.Format(time.RFC3339), "window_end", now.Format(time.RFC3339))
 
 	d := &digest.Digest{WindowStart: start, WindowEnd: now}
@@ -117,7 +127,7 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 
 	reported := p.macro(ctx, d, start, now)
 	p.fed(ctx, d, start, now)
-	filings := p.earnings(ctx, d, start, now)
+	filings := p.earnings(ctx, d, start, now, opts.DryRun && !opts.Since.IsZero())
 	p.weekAhead(ctx, d, now)
 
 	if p.Sum != nil {
@@ -129,7 +139,7 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 		}
 	}
 
-	html, err := d.Render()
+	page, err := d.RenderPage()
 	if err != nil {
 		return Result{}, fmt.Errorf("render: %w", err)
 	}
@@ -141,17 +151,45 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 	if opts.DryRun {
 		suffix = "-dry-run"
 	}
-	path := filepath.Join(dir, now.Format("2006-01-02-1504")+suffix+".html")
-	if err := os.WriteFile(path, []byte(html), 0o644); err != nil {
+	base := filepath.Join(dir, now.Format("2006-01-02-1504")+suffix)
+	path := base + ".html"
+	if err := os.WriteFile(path, []byte(page), 0o644); err != nil {
 		return Result{}, err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "latest.html"), []byte(page), 0o644); err != nil {
+		p.Log.Warn("write latest.html failed", "err", err)
 	}
 	res := Result{Path: path, Subject: d.Subject()}
 	p.Log.Info("digest written", "path", path)
+
+	var atts []digest.Attachment
+	if p.PrintPDF != nil {
+		pdfPath := base + ".pdf"
+		if err := p.PrintPDF(ctx, path, pdfPath); err != nil {
+			p.Log.Error("pdf failed; sending without attachment", "err", err)
+		} else if data, err := os.ReadFile(pdfPath); err == nil {
+			res.PDFPath = pdfPath
+			atts = append(atts, digest.Attachment{
+				Name:        "market-summary-" + now.Format("2006-01-02") + ".pdf",
+				ContentType: "application/pdf",
+				Data:        data,
+			})
+		}
+	}
+	if opts.Open && p.Open != nil {
+		if err := p.Open(path); err != nil {
+			p.Log.Warn("open in browser failed", "err", err)
+		}
+	}
 	if opts.DryRun {
 		return res, nil
 	}
 
-	if err := p.Mail.Send(d.Subject(), html); err != nil {
+	email, err := d.RenderEmail(len(atts) > 0)
+	if err != nil {
+		return res, fmt.Errorf("render email: %w", err)
+	}
+	if err := p.Mail.Send(d.Subject(), email, atts...); err != nil {
 		return res, fmt.Errorf("send email (digest kept at %s): %w", path, err)
 	}
 	res.Sent = true
@@ -288,7 +326,7 @@ func (p *Pipeline) fed(ctx context.Context, d *digest.Digest, start, now time.Ti
 
 // earnings collects watchlist filings, extracts figures, and fills the
 // Earnings section and season aggregate. It returns accessions shown.
-func (p *Pipeline) earnings(ctx context.Context, d *digest.Digest, start, now time.Time) []string {
+func (p *Pipeline) earnings(ctx context.Context, d *digest.Digest, start, now time.Time, preview bool) []string {
 	if p.Cfg.Secrets.SECUserAgent == "" {
 		d.Notes = append(d.Notes, "Earnings section unavailable: SEC_USER_AGENT is not set.")
 		return nil
@@ -347,6 +385,10 @@ func (p *Pipeline) earnings(ctx context.Context, d *digest.Digest, start, now ti
 
 	// Reports not yet emailed.
 	unreported, err := p.Store.UnreportedFilings()
+	if preview {
+		// Previewing a past period: include filings already emailed.
+		unreported, err = p.Store.FilingsFiledBetween(windowDay.AddDate(0, 0, -1), now)
+	}
 	if err != nil {
 		p.Log.Error("load filings failed", "err", err)
 		return nil

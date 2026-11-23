@@ -87,7 +87,7 @@ Rules:
 - guidance: "raised", "maintained", or "lowered" only when the release states the direction or compares the new outlook with the previous one. Use "initiated" for a first outlook (including a next-quarter forecast given without a prior one to compare), "updated" when the outlook changed but the release does not say in which direction, "withdrawn", or "none" when the release gives no outlook. guidance_note states the outlook in one short sentence, or is empty.
 - headline: one plain sentence, at most 30 words, on what mattered most this quarter.
 - summary: when depth is "headline", an empty string. When depth is "standard", one paragraph of 80 to 140 words covering demand, margins, segments, and management tone. When prior quarter notes are provided, say what changed since then.
-- Write for a reader who is learning how markets work. Plain language, no hype, no investment advice.`
+- Write for a reader who is learning how markets work. Plain language, no hype, no investment advice. Explain business terms such as "comparable sales", "gross margin", or "data center" in a few words the first time.`
 
 var earningsSchema = json.RawMessage(`{
   "type": "object",
@@ -138,7 +138,7 @@ func (s *Summarizer) ExtractEarnings(ctx context.Context, in EarningsInput) (mod
 }
 
 const fedSystem = `You summarize Federal Reserve press releases for a personal market digest read by someone learning how markets work.
-Write one paragraph of 60 to 120 words: what the document says, what changed from before if the document says so, and why it matters for rates, inflation, jobs, or markets. Plain language. Use only facts in the document. No investment advice.`
+Write one paragraph of 60 to 120 words: what the document says, what changed from before if the document says so, and why it matters for rates, inflation, jobs, or markets. Plain language: assume no finance background and explain any term like "federal funds rate" or "PCE" in a few words the first time. Use only facts in the document. No investment advice.`
 
 // FedSummary summarizes one Federal Reserve document.
 func (s *Summarizer) FedSummary(ctx context.Context, d model.FedDoc) (string, error) {
@@ -149,7 +149,8 @@ func (s *Summarizer) FedSummary(ctx context.Context, d model.FedDoc) (string, er
 const overviewSystem = `You write the opening paragraph of a personal market digest. The reader is learning how markets work and wants to know how the market is doing and why.
 Use only the facts in the brief. Every number you mention must appear in the brief; do not calculate new ones.
 Connect the pieces: what moved, the likely reasons given in the brief, and what to watch next. Prefer cause and effect over lists.
-Write 120 to 200 words in one or two paragraphs. No headings, no bullet points, no investment advice.`
+Assume the reader knows no finance jargon. The first time you use a term such as VIX, basis points, Treasury yield, credit spread, core PCE, guidance, or FOMC, explain it in a few plain words inside the sentence (for example "the VIX, a gauge of how much turbulence traders expect, jumped 57%"). Say what a move means for ordinary people when the brief supports it.
+Write 150 to 250 words in two or three short paragraphs. No headings, no bullet points, no investment advice.`
 
 // Overview writes the opening summary from a plain-text brief of computed facts.
 func (s *Summarizer) Overview(ctx context.Context, brief string) (string, error) {
