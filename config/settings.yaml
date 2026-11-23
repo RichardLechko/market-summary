@@ -5,10 +5,10 @@ first_run_days: 7
 # Earnings "season so far" looks back this many days.
 season_days: 100
 
-# Claude models. Opus is the default for both; set extraction_model to
-# claude-haiku-5-5 to cut per-filing cost if the extractions hold up.
-extraction_model: claude-opus-5-5
-overview_model: claude-opus-5-5
+# Claude models. Haiku keeps the yearly cost well under a dollar; switch
+# either to claude-opus-5-5 if quality is not good enough.
+extraction_model: claude-haiku-5-5
+overview_model: claude-haiku-5-5
 effort: medium
 
 # Federal Reserve RSS feeds. Items whose title contains an exclude phrase are skipped.
