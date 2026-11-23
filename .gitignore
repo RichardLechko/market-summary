@@ -2,15 +2,9 @@
 .env
 config/watchlist.local.yaml
 
-# Local data: SQLite database, generated digests, caches
+# Local data: SQLite database, generated digests, logs
 data/
 
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-.pytest_cache/
-.ruff_cache/
-*.egg-info/
-dist/
-build/
+# Built binary
+market-summary.exe
+*.exe

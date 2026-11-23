@@ -1,0 +1,29 @@
+# Bellwether companies. Personal holdings go in config/watchlist.local.yaml
+# (gitignored) using the same format; an entry there with the same ticker
+# replaces the one here.
+#
+# depth: headline (one line), standard (paragraph vs. last quarter),
+#        deep (reserved for call transcripts; behaves as standard for now)
+# forms: filings that carry earnings releases. Default [8-K] (Item 2.02).
+#        Foreign filers such as TSMC use 6-K.
+
+companies:
+  - {ticker: JPM,   sector: Banks,              depth: standard}
+  - {ticker: BAC,   sector: Banks,              depth: headline}
+
+  - {ticker: AAPL,  sector: Mega-cap tech,      depth: standard}
+  - {ticker: MSFT,  sector: Mega-cap tech,      depth: standard}
+  - {ticker: NVDA,  sector: Mega-cap tech,      depth: standard}
+  - {ticker: AMZN,  sector: Mega-cap tech,      depth: headline}
+  - {ticker: GOOGL, sector: Mega-cap tech,      depth: headline}
+  - {ticker: META,  sector: Mega-cap tech,      depth: headline}
+
+  - {ticker: WMT,   sector: Consumer,           depth: standard}
+  - {ticker: COST,  sector: Consumer,           depth: headline}
+  - {ticker: HD,    sector: Consumer,           depth: headline}
+
+  - {ticker: CAT,   sector: Industrial and shipping, depth: headline}
+  - {ticker: FDX,   sector: Industrial and shipping, depth: headline}
+  - {ticker: UPS,   sector: Industrial and shipping, depth: headline}
+
+  - {ticker: TSM,   sector: Semiconductors,     depth: headline, forms: [6-K]}

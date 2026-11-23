@@ -1,0 +1,34 @@
+# FRED series shown in the digest.
+#
+# kind:
+#   price           daily level, change in % since the last digest
+#   rate            daily percent, change in basis points since the last digest
+#   index_yoy       monthly index shown as year-over-year %, change in pp vs prior month
+#   monthly_change  monthly level shown as the month's change (e.g. jobs added)
+#   level           shown as-is, change vs prior observation; delta: pct or diff
+# group: "Market" goes in the Market section; anything else becomes a heading
+#   in the Economy section (monthly/weekly series appear only when newly released).
+# flag_threshold: absolute change (in the row's change unit) that marks a notable move.
+
+series:
+  - {id: SP500,        name: S&P 500,                 group: Market,      kind: price, flag_threshold: 2}
+  - {id: NASDAQCOM,    name: Nasdaq Composite,        group: Market,      kind: price, flag_threshold: 3}
+  - {id: DJIA,         name: Dow Jones Industrial,    group: Market,      kind: price, flag_threshold: 2}
+  - {id: VIXCLS,       name: VIX (volatility),        group: Market,      kind: price, flag_threshold: 15}
+
+  - {id: DFF,          name: Fed funds rate,          group: Rates,       kind: rate,  flag_threshold: 10}
+  - {id: DGS2,         name: 2-year Treasury,         group: Rates,       kind: rate,  flag_threshold: 15}
+  - {id: DGS10,        name: 10-year Treasury,        group: Rates,       kind: rate,  flag_threshold: 15}
+  - {id: T10Y2Y,       name: 10y minus 2y spread,     group: Rates,       kind: rate,  flag_threshold: 15}
+
+  - {id: CPIAUCSL,     name: CPI inflation,           group: Inflation,   kind: index_yoy, flag_threshold: 0.2}
+  - {id: PCEPILFE,     name: Core PCE inflation,      group: Inflation,   kind: index_yoy, flag_threshold: 0.2}
+
+  - {id: PAYEMS,       name: Jobs added (payrolls),   group: Labor,       kind: monthly_change, unit: K, flag_threshold: 100}
+  - {id: UNRATE,       name: Unemployment rate,       group: Labor,       kind: level, unit: "%", delta: diff, flag_threshold: 0.2}
+  - {id: ICSA,         name: Initial jobless claims,  group: Labor,       kind: level, delta: pct, flag_threshold: 10}
+
+  - {id: BAMLH0A0HYM2, name: High-yield credit spread, group: Credit,     kind: rate,  flag_threshold: 25}
+  - {id: UMCSENT,      name: Consumer sentiment,      group: Consumer,    kind: level, delta: diff, flag_threshold: 5}
+
+  - {id: DCOILWTICO,   name: WTI crude oil ($/bbl),   group: Commodities, kind: price, flag_threshold: 5}

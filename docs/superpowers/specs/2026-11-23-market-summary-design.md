@@ -1,7 +1,7 @@
 # Market Summary — Design
 
 Date: 2026-11-23
-Status: Draft, pending review
+Status: Phases 0–4 implemented 2026-11-23. Changes made during the build are noted inline as "Implementation note".
 
 ## Purpose
 
@@ -98,6 +98,8 @@ The series list lives in `config/series.yaml` so it can change without code edit
 
 FOMC statements and minutes, and the Beige Book (eight times a year). Summarized when a new document falls inside the digest's coverage window.
 
+Implementation note: the Beige Book is not in any Fed RSS feed. It is read from the Beige Book index page (latest report link) with the release date taken from the report's "Last Update" line. The monetary policy feed's discount-rate minutes are excluded by title.
+
 ### Earnings (SEC EDGAR, free, User-Agent with contact required)
 
 Bellwether list in `config/watchlist.yaml`, each with a depth tier:
@@ -116,7 +118,9 @@ Depth tiers:
 
 Personal holdings go in the gitignored `config/watchlist.local.yaml` and are merged at load time. The SEC User-Agent contact string comes from `.env`.
 
-The EDGAR rate limit (10 requests/second) is enforced in the client with a token bucket.
+The EDGAR rate limit (10 requests/second) is enforced in the client with a minimum interval between requests (120 ms).
+
+Implementation note: XBRL company facts are not used. Quarterly XBRL data arrives with the 10-Q, weeks after the 8-K press release, so it cannot describe a report in the week it happens. Instead the model extracts the current and year-ago figures from the press release's own comparison table (structured output), and code computes growth from them. Standard-depth companies also get their previous earnings release extracted once, so the summary can compare against last quarter.
 
 ## Digest format
 
@@ -133,12 +137,11 @@ The subject line states the coverage window (for example "Market summary: Nov 17
 
 ## Claude usage
 
-- Per-filing summaries: a smaller, cheaper model (Haiku class)
-- Summary paragraph: a stronger model (Sonnet class)
+- Models are set in `config/settings.yaml` (`extraction_model`, `overview_model`, `effort`)
 - Prompt caching on the static system prompt
 - LLM outputs cached in SQLite keyed by input hash, so dry runs and retries do not pay twice
 
-Exact model IDs and parameters are fixed in the implementation plan.
+Implementation note: both default to `claude-opus-5-5` at `medium` effort, with server-side refusal fallback enabled. `extraction_model` can be switched to `claude-haiku-5-5` to cut per-filing cost if extraction quality holds. Earnings extraction uses structured output against a JSON schema.
 
 ## Error handling
 

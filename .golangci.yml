@@ -1,0 +1,33 @@
+version: "2"
+
+linters:
+  enable:
+    - errorlint
+    - gocritic
+    - misspell
+    - revive
+    - unconvert
+    - unparam
+  settings:
+    errcheck:
+      # Deferred Close on read paths; write paths check Commit/Close explicitly.
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.Stmt).Close
+        - (*github.com/RichardLechko/market-summary/internal/store.Store).Close
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [errcheck, unparam]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

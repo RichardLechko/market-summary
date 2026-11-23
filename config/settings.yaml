@@ -1,0 +1,32 @@
+# Run gate: a digest is sent at most once per this many calendar days.
+min_gap_days: 7
+# Coverage of the very first digest.
+first_run_days: 7
+# Earnings "season so far" looks back this many days.
+season_days: 100
+
+# Claude models. Opus is the default for both; set extraction_model to
+# claude-haiku-5-5 to cut per-filing cost if the extractions hold up.
+extraction_model: claude-opus-5-5
+overview_model: claude-opus-5-5
+effort: medium
+
+# Federal Reserve RSS feeds. Items whose title contains an exclude phrase are skipped.
+fed_feeds:
+  - url: https://www.federalreserve.gov/feeds/press_monetary.xml
+    exclude:
+      - discount rate
+# The Beige Book has no RSS feed; its index page lists the latest report.
+beige_book_index: https://www.federalreserve.gov/monetarypolicy/publications/beige-book-default.htm
+
+# FRED releases shown in "Week ahead" (case-insensitive name match).
+releases:
+  - Consumer Price Index
+  - Employment Situation
+  - Personal Income and Outlays
+  - Gross Domestic Product
+  - Unemployment Insurance Weekly Claims
+  - Advance Monthly Sales for Retail and Food Services
+  - Producer Price Index
+  - Job Openings and Labor Turnover Survey
+  - Surveys of Consumers
