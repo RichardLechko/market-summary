@@ -1,0 +1,16 @@
+# Secrets and personal config — this repo is public
+.env
+config/watchlist.local.yaml
+
+# Local data: SQLite database, generated digests, caches
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
