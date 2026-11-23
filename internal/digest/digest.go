@@ -26,6 +26,7 @@ var funcs = template.FuncMap{
 	"date":     func(t time.Time) string { return t.Format("Mon Jan 2") },
 	"dateLong": func(t time.Time) string { return t.Format("Monday, January 2, 2006") },
 	"paras":    paragraphs,
+	"spark":    sparkline,
 }
 
 var (

@@ -22,6 +22,7 @@ type MacroRow struct {
 	AsOf       time.Time
 	New        bool // has data newer than the last digest
 	Flagged    bool
+	Trend      []float64 // past year of the displayed quantity, oldest first
 }
 
 // Macro computes a row per series. windowStart is the cutoff of the previous
@@ -123,6 +124,7 @@ func macroRow(s config.Series, obs []stats.Obs, windowStart, reported time.Time)
 		}
 	}
 	row.Flagged = row.HasChange && s.Threshold > 0 && math.Abs(row.Change) >= s.Threshold
+	row.Trend = Trend(s.Kind, obs, last.Date)
 	return row, true
 }
 
