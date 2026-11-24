@@ -194,6 +194,7 @@ func newPipeline(cfg *config.Config, st *store.Store, log *slog.Logger) *pipelin
 		// SEC allows 10 requests/second; stay under it.
 		EDGAR: &collect.EDGAR{HTTP: httpx.New(sec.SECUserAgent, 120*time.Millisecond)},
 		AV:    &collect.AlphaVantage{HTTP: alpha, Key: sec.AlphaVantageKey},
+		FINRA: &collect.FINRA{HTTP: general},
 		Mail:  mailer(cfg),
 	}
 	if browser, err := digest.FindBrowser(cfg.Settings.BrowserPath); err != nil {

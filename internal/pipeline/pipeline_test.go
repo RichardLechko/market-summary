@@ -115,6 +115,13 @@ func fixtureServer(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/minutes", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, `<html><body><div id="article"><p>Participants agreed policy was well positioned.</p></div></body></html>`)
 	})
+	mux.HandleFunc("/data/group/otcMarket/name/consolidatedShortInterest", func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `[{"symbolCode":"JPM","settlementDate":"2026-10-30","currentShortPositionQuantity":20000000,"averageDailyVolumeQuantity":10000000,"daysToCoverQuantity":2},
+			{"symbolCode":"JPM","settlementDate":"2026-11-13","currentShortPositionQuantity":26000000,"averageDailyVolumeQuantity":10000000,"daysToCoverQuantity":2.6}]`)
+	})
+	mux.HandleFunc("/api/xbrl/companyconcept/", func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"units":{"shares":[{"end":"2026-10-31","val":1000000000}]}}`)
+	})
 	mux.HandleFunc("/files/company_tickers.json", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, `{"0":{"cik_str":19617,"ticker":"JPM","title":"JPMorgan Chase"}}`)
 	})
@@ -186,6 +193,7 @@ func newTestPipeline(t *testing.T, srv *httptest.Server, caller summarize.Caller
 		FRED:  &collect.FRED{HTTP: hc, Key: "k", BaseURL: srv.URL + "/fred"},
 		Fed:   &collect.Fed{HTTP: hc},
 		EDGAR: &collect.EDGAR{HTTP: hc, WWWBase: srv.URL, DataBase: srv.URL},
+		FINRA: &collect.FINRA{HTTP: hc, BaseURL: srv.URL},
 		Mail:  sender,
 	}
 	if caller != nil {
@@ -221,6 +229,11 @@ func TestRunEndToEnd(t *testing.T) {
 		"The CEO resigned.",
 		"Leadership change",
 		"An investor took a 6% stake.",
+		"Short interest",
+		"As of Friday, November 13, 2026",
+		"2.6%",
+		"26.0M",
+		"+30.0%",
 		"Insider trades",
 		"James Dimon",
 		"Sold 100,000 shares for $30.0M",
@@ -273,6 +286,9 @@ func TestRunEndToEnd(t *testing.T) {
 	}
 	if strings.Contains(third, "The CEO resigned.") {
 		t.Error("already-reported event repeated")
+	}
+	if strings.Contains(third, "Shares sold short and not yet bought back") {
+		t.Error("unchanged short interest report repeated")
 	}
 	if !strings.Contains(third, "Market summary: Nov 24 – Dec 2") {
 		t.Error("window should start at previous cutoff")

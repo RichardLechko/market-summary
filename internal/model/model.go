@@ -124,3 +124,12 @@ type InsiderTrade struct {
 	Account    string    `json:"account"` // direct, or the indirect holder, e.g. "By Trust"
 	Plan       bool      `json:"plan"`    // made under a pre-arranged Rule 10b5-1 plan
 }
+
+// ShortInterest is one twice-monthly FINRA short interest report for a stock.
+type ShortInterest struct {
+	Symbol      string
+	Settlement  time.Time // the date the position was measured
+	Short       float64   // shares sold short and not yet bought back
+	AvgVolume   float64   // average daily shares traded
+	DaysToCover float64   // Short / AvgVolume, as FINRA reports it
+}

@@ -88,6 +88,10 @@ td.spark-cell { width: 6.5rem; padding-left: 1rem; padding-top: 0.8rem; }
 .spark .end { fill: var(--ink); }
 .spark .end.flag { fill: var(--accent); }
 td.chg.flag { color: var(--accent); font-weight: 600; }
+th { font-family: var(--sans); font-size: 0.75rem; font-weight: 600; color: var(--ink-3); text-align: left; padding: 0 0 0.4rem; border-bottom: 1px solid var(--rule); }
+th.num { text-align: right; padding-left: 1rem; }
+table.short td { padding: 0.5rem 0; }
+table.short td.num { padding-left: 1rem; }
 .name { font-weight: 500; }
 .about { display: block; font-size: 0.8125rem; line-height: 1.45; color: var(--ink-3); margin-top: 0.15rem; max-width: 28rem; }
 .tag { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-left: 0.4rem; }
@@ -171,6 +175,7 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
     {{if .Fed}}<li><a href="#fed">Federal Reserve</a></li>{{end}}
     {{if or .Earnings .Calls .Aggregate}}<li><a href="#earnings">Earnings</a></li>{{end}}
     {{if or .News .Insiders .Clusters}}<li><a href="#news">Company news</a></li>{{end}}
+    {{if .Short}}<li><a href="#short">Short interest</a></li>{{end}}
     {{if .WeekAhead}}<li><a href="#ahead">Week ahead</a></li>{{end}}
     <li><a href="#terms">Terms</a></li>
   </ol>
@@ -320,6 +325,27 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
 </section>
 {{end}}
 
+{{if .Short}}
+<section id="short">
+  <h2>Short interest</h2>
+  <p class="meta">As of {{dateLong .ShortAsOf}}</p>
+  <table class="short">
+    <tr><th>Stock</th><th></th><th class="num">Of shares</th><th class="num">Shares short</th><th class="num">Change</th><th class="num">Days to cover</th></tr>
+  {{range .Short}}
+    <tr>
+      <td><span class="name">{{.Ticker}}</span></td>
+      <td class="spark-cell">{{spark .Trend .Flagged}}</td>
+      <td class="num">{{if .Pct}}{{.Pct}}{{else}}–{{end}}</td>
+      <td class="num">{{.Shares}}</td>
+      <td class="num chg{{if .Flagged}} flag{{end}}">{{.Change}}</td>
+      <td class="num">{{.Days}}</td>
+    </tr>
+  {{end}}
+  </table>
+  <p class="source">Shares sold short and not yet bought back, measured twice a month. "Of shares" divides by shares outstanding from the company's latest SEC filing; it is left blank for companies with several share classes and for foreign companies, whose US shares can each stand for several local shares. Change is since the previous report. Red marks a rise of 25% or more from a meaningful base, or more than 15% of shares sold short. Lines show the past year. Sources: FINRA; SEC EDGAR.</p>
+</section>
+{{end}}
+
 {{if .WeekAhead}}
 <section id="ahead">
   <h2>Week ahead</h2>
@@ -346,6 +372,8 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
     <dt>Payrolls</dt><dd>The number of jobs employers added that month.</dd>
     <dt>Initial jobless claims</dt><dd>New applications for unemployment benefits each week. A rising trend is an early sign of layoffs.</dd>
     <dt>Diluted EPS</dt><dd>Earnings per share: profit divided by the number of shares, counting shares that options and convertible securities could create.</dd>
+    <dt>Short interest</dt><dd>Shares that investors have borrowed and sold, betting the price will fall, and not yet bought back. A rising level means more investors are betting against the company.</dd>
+    <dt>Days to cover</dt><dd>Shares sold short divided by average daily trading: roughly how many days of normal trading it would take short sellers to buy their shares back. A high number can make a sharp rise more likely if they all rush to buy.</dd>
     <dt>Guidance</dt><dd>A company's own forecast for its upcoming results. Raising or cutting it often moves the stock more than the results themselves.</dd>
     <dt>FOMC</dt><dd>The Federal Open Market Committee, the Fed group that sets short-term interest rates. It meets eight times a year.</dd>
     <dt>Beige Book</dt><dd>The Fed's report on business conditions in each of its twelve regions, built from conversations with local businesses.</dd>

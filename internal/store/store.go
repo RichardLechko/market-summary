@@ -79,6 +79,14 @@ CREATE TABLE IF NOT EXISTS insider_filings (
 	trades    TEXT NOT NULL,
 	reported  INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS short_interest (
+	symbol        TEXT NOT NULL,
+	settlement    TEXT NOT NULL,
+	short         REAL NOT NULL,
+	avg_volume    REAL NOT NULL,
+	days_to_cover REAL NOT NULL,
+	PRIMARY KEY (symbol, settlement)
+);
 CREATE TABLE IF NOT EXISTS llm_cache (
 	key     TEXT PRIMARY KEY,
 	output  TEXT NOT NULL,
@@ -561,4 +569,43 @@ func (s *Store) queryInsider(where string, args ...any) ([]model.InsiderFiling, 
 func (s *Store) Backup(path string) error {
 	_, err := s.db.Exec(`VACUUM INTO ?`, path)
 	return err
+}
+
+// UpsertShortInterest stores short interest reports; a revised report
+// replaces the earlier figures.
+func (s *Store) UpsertShortInterest(rows []model.ShortInterest) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	for _, r := range rows {
+		if _, err := tx.Exec(`INSERT INTO short_interest (symbol, settlement, short, avg_volume, days_to_cover) VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT (symbol, settlement) DO UPDATE SET short = excluded.short, avg_volume = excluded.avg_volume, days_to_cover = excluded.days_to_cover`,
+			r.Symbol, r.Settlement.Format(dateFmt), r.Short, r.AvgVolume, r.DaysToCover); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// ShortInterest returns a symbol's stored reports, oldest first.
+func (s *Store) ShortInterest(symbol string) ([]model.ShortInterest, error) {
+	rows, err := s.db.Query(`SELECT symbol, settlement, short, avg_volume, days_to_cover FROM short_interest
+		WHERE symbol = ? ORDER BY settlement`, symbol)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.ShortInterest
+	for rows.Next() {
+		var r model.ShortInterest
+		var d string
+		if err := rows.Scan(&r.Symbol, &d, &r.Short, &r.AvgVolume, &r.DaysToCover); err != nil {
+			return nil, err
+		}
+		r.Settlement, _ = time.ParseInLocation(dateFmt, d, time.Local)
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }

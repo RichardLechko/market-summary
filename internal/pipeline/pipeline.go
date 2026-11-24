@@ -58,12 +58,15 @@ type Pipeline struct {
 	Fed   *collect.Fed
 	EDGAR *collect.EDGAR
 	AV    *collect.AlphaVantage // call transcripts and fund prices; nil or no key disables both
+	FINRA *collect.FINRA        // short interest; nil disables it
 	Sum   *summarize.Summarizer // nil when no API key is configured
 	Mail  Sender
 	// PrintPDF renders the page to a PDF for the email; nil skips the PDF.
 	PrintPDF func(ctx context.Context, htmlPath, pdfPath string) error
 	// Open shows the page in the browser; nil disables it.
 	Open func(path string) error
+
+	ciks map[string]int // ticker to SEC CIK, set by the earnings step
 }
 
 // Sender delivers the email.
@@ -132,6 +135,7 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 	filings := p.earnings(ctx, d, start, now, !opts.Since.IsZero())
 	callNotes := p.calls(ctx, d, start, now, !opts.Since.IsZero())
 	events, insiders := p.news(d, start, now, !opts.Since.IsZero())
+	shortAsOf := p.shortInterest(ctx, d, now, !opts.Since.IsZero())
 	p.weekAhead(ctx, d, now)
 
 	if p.Sum != nil {
@@ -202,6 +206,9 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 	kv := map[string]string{
 		metaLastSent:   now.Format("2006-01-02"),
 		metaLastCutoff: now.Format(time.RFC3339),
+	}
+	if shortAsOf != "" {
+		kv[metaShortReported] = shortAsOf
 	}
 	for id, t := range reported {
 		kv[metaReported+id] = t.Format("2006-01-02")
@@ -363,6 +370,7 @@ func (p *Pipeline) earnings(ctx context.Context, d *digest.Digest, start, now ti
 		d.Notes = append(d.Notes, "Earnings section unavailable: SEC EDGAR could not be reached.")
 		return nil
 	}
+	p.ciks = tickers
 	history := map[string][]time.Time{}
 	windowDay := dateOnly(start)
 	seasonDay := dateOnly(now.AddDate(0, 0, -p.Cfg.Settings.SeasonDays))

@@ -47,6 +47,8 @@ type Digest struct {
 	News        []NewsView    // non-earnings company filings
 	Insiders    []InsiderView // notable insider purchases and sales
 	Clusters    []ClusterView // several insiders buying the same company
+	Short       []ShortView   // latest short interest, when newly published
+	ShortAsOf   time.Time
 	Aggregate   *AggregateView
 	WeekAhead   []AheadItem
 	Notes       []string // sections that were unavailable and why
@@ -267,6 +269,26 @@ func (d *Digest) Brief() string {
 		b.WriteString("\nCompany news (SEC filings):\n")
 		for _, n := range d.News {
 			fmt.Fprintf(&b, "- %s %s (%s, filed %s): %s %s\n", n.Ticker, n.Kind, n.Company, n.Filed.Format("2006-01-02"), n.Headline, n.Summary)
+		}
+	}
+	if len(d.Short) > 0 {
+		fmt.Fprintf(&b, "\nShort interest (FINRA, as of %s; most shorted first):\n", d.ShortAsOf.Format("2006-01-02"))
+		for i, s := range d.Short {
+			if i >= 3 && !s.Flagged {
+				continue
+			}
+			fmt.Fprintf(&b, "- %s: %s short", s.Ticker, s.Shares)
+			if s.Pct != "" {
+				fmt.Fprintf(&b, " (%s of shares)", s.Pct)
+			}
+			if s.Change != "" {
+				fmt.Fprintf(&b, ", %s since the previous report", s.Change)
+			}
+			fmt.Fprintf(&b, ", %s days to cover", s.Days)
+			if s.Flagged {
+				b.WriteString(" [notable]")
+			}
+			b.WriteString("\n")
 		}
 	}
 	for _, c := range d.Clusters {

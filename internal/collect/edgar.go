@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -232,3 +233,39 @@ func (e *EDGAR) DocumentText(ctx context.Context, url string) (string, error) {
 
 // ParseCIK parses a CIK string such as "0000019617".
 func ParseCIK(s string) (int, error) { return strconv.Atoi(strings.TrimLeft(s, "0")) }
+
+// SharesOutstanding returns the latest shares outstanding a company reported
+// on the cover of its 10-K, 10-Q or 20-F, and the date it applies to.
+// found is false when the company reports no single figure, as with
+// companies that have several share classes.
+func (e *EDGAR) SharesOutstanding(ctx context.Context, cik int) (shares float64, asOf time.Time, found bool, err error) {
+	body, err := e.HTTP.Get(ctx, fmt.Sprintf("%s/api/xbrl/companyconcept/CIK%010d/dei/EntityCommonStockSharesOutstanding.json", e.data(), cik))
+	var se *httpx.StatusError
+	if errors.As(err, &se) && se.Status == 404 {
+		return 0, time.Time{}, false, nil
+	}
+	if err != nil {
+		return 0, time.Time{}, false, err
+	}
+	var resp struct {
+		Units struct {
+			Shares []struct {
+				End string  `json:"end"`
+				Val float64 `json:"val"`
+			} `json:"shares"`
+		} `json:"units"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return 0, time.Time{}, false, fmt.Errorf("shares outstanding %d: %w", cik, err)
+	}
+	for _, s := range resp.Units.Shares {
+		d, err := time.ParseInLocation("2006-01-02", s.End, time.Local)
+		if err != nil || s.Val <= 0 {
+			continue
+		}
+		if !d.Before(asOf) {
+			shares, asOf, found = s.Val, d, true
+		}
+	}
+	return shares, asOf, found, nil
+}

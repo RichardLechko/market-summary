@@ -3,6 +3,7 @@
 package httpx
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -36,11 +37,18 @@ func New(userAgent string, minInterval time.Duration) *Client {
 
 // StatusError is returned for non-2xx responses after retries.
 type StatusError struct {
+	Method string // empty means GET
 	URL    string
 	Status int
 }
 
-func (e *StatusError) Error() string { return fmt.Sprintf("GET %s: HTTP %d", e.URL, e.Status) }
+func (e *StatusError) Error() string {
+	m := e.Method
+	if m == "" {
+		m = http.MethodGet
+	}
+	return fmt.Sprintf("%s %s: HTTP %d", m, e.URL, e.Status)
+}
 
 func (c *Client) wait(ctx context.Context) error {
 	if c.MinInterval <= 0 {
@@ -65,20 +73,30 @@ func (c *Client) wait(ctx context.Context) error {
 // Get fetches url and returns the body. It retries on network errors, 429,
 // and 5xx with exponential backoff.
 func (c *Client) Get(ctx context.Context, url string) ([]byte, error) {
+	return c.send(ctx, http.MethodGet, url, nil)
+}
+
+// PostJSON sends body as JSON and returns the response body, with the same
+// retries as Get.
+func (c *Client) PostJSON(ctx context.Context, url string, body []byte) ([]byte, error) {
+	return c.send(ctx, http.MethodPost, url, body)
+}
+
+func (c *Client) send(ctx context.Context, method, url string, reqBody []byte) ([]byte, error) {
 	var lastErr error
 	backoff := c.BaseBackoff
 	for attempt := 1; attempt <= c.Attempts; attempt++ {
 		if err := c.wait(ctx); err != nil {
 			return nil, err
 		}
-		body, status, err := c.do(ctx, url)
+		body, status, err := c.do(ctx, method, url, reqBody)
 		switch {
 		case err == nil && status >= 200 && status < 300:
 			return body, nil
 		case err == nil && status != http.StatusTooManyRequests && status < 500:
-			return nil, &StatusError{URL: url, Status: status}
+			return nil, &StatusError{Method: method, URL: url, Status: status}
 		case err == nil:
-			lastErr = &StatusError{URL: url, Status: status}
+			lastErr = &StatusError{Method: method, URL: url, Status: status}
 		default:
 			lastErr = err
 		}
@@ -94,10 +112,18 @@ func (c *Client) Get(ctx context.Context, url string) ([]byte, error) {
 	return nil, lastErr
 }
 
-func (c *Client) do(ctx context.Context, url string) ([]byte, int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (c *Client) do(ctx context.Context, method, url string, reqBody []byte) ([]byte, int, error) {
+	var rd io.Reader
+	if reqBody != nil {
+		rd = bytes.NewReader(reqBody)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, url, rd)
 	if err != nil {
 		return nil, 0, err
+	}
+	if reqBody != nil {
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
 	}
 	if c.UserAgent != "" {
 		req.Header.Set("User-Agent", c.UserAgent)
