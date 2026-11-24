@@ -66,7 +66,7 @@ Schedule it:
 pwsh -File scripts\install-task.ps1
 ```
 
-If a scheduled or forced run fails, you get a short "Market summary failed" email with the error (at most one a day), and `status` shows it until the next successful send. After each send the database is copied to `dataackups` (or `backup_dir` in `config/settings.yaml`); the newest 4 copies are kept. To restore one, copy it over `datamarket-summary.db`.
+If a scheduled or forced run fails, you get a short "Market summary failed" email with the error (at most one a day), and `status` shows it until the next successful send. After each send the database is copied to `data\backups\` (or `backup_dir` in `config/settings.yaml`); the newest 4 copies are kept. To restore one, copy it over `data\market-summary.db`.
 
 Remove the schedule:
 
