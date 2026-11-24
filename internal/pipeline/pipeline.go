@@ -131,6 +131,7 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 	p.fed(ctx, d, start, now)
 	filings := p.earnings(ctx, d, start, now, !opts.Since.IsZero())
 	callNotes := p.calls(ctx, d, start, now, !opts.Since.IsZero())
+	events := p.news(d, start, now, !opts.Since.IsZero())
 	p.weekAhead(ctx, d, now)
 
 	if p.Sum != nil {
@@ -213,6 +214,9 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 	}
 	if err := p.Store.MarkCallNotesReported(callNotes); err != nil {
 		return res, fmt.Errorf("mark call notes reported: %w", err)
+	}
+	if err := p.Store.MarkEventsReported(events); err != nil {
+		return res, fmt.Errorf("mark events reported: %w", err)
 	}
 	return res, nil
 }
@@ -369,6 +373,11 @@ func (p *Pipeline) earnings(ctx context.Context, d *digest.Digest, start, now ti
 		if err != nil {
 			p.Log.Error("edgar submissions failed", "ticker", c.Ticker, "err", err)
 			continue
+		}
+		for _, sf := range subs {
+			if !sf.Filed.Before(windowDay) {
+				p.ensureEvent(ctx, c, cik, sf)
+			}
 		}
 		cands := candidates(c, subs)
 		for i, sf := range cands {

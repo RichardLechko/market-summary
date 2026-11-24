@@ -78,3 +78,24 @@ type CallTheme struct {
 	Topic  string `json:"topic"`
 	Detail string `json:"detail"`
 }
+
+// CompanyEvent is a non-earnings 8-K, such as a leadership change or a
+// completed acquisition.
+type CompanyEvent struct {
+	Accession string
+	Ticker    string
+	Form      string
+	Filed     time.Time
+	Items     string // 8-K item numbers, e.g. "5.02,9.01"
+	DocURL    string
+	News      *EventNews // nil until summarized
+	Reported  bool       // included in a sent digest
+}
+
+// EventNews is what the model takes from an event filing.
+type EventNews struct {
+	Company  string `json:"company"`
+	Routine  bool   `json:"routine"` // not worth showing, e.g. a routine pay plan
+	Headline string `json:"headline"`
+	Summary  string `json:"summary"`
+}

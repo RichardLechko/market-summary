@@ -223,3 +223,63 @@ func (s *Summarizer) CallNotes(ctx context.Context, in CallInput) (model.CallNot
 	}
 	return notes, nil
 }
+
+// EventInput describes one company event filing to summarize.
+type EventInput struct {
+	Ticker string
+	Kinds  []string // plain labels for the 8-K items, e.g. "Leadership change"
+	Filing string   // the 8-K text
+	Press  string   // the attached press release, if any
+}
+
+const eventSystem = `You read SEC 8-K filings that report company events other than earnings (leadership changes, major agreements, acquisitions, restructurings and similar) for a personal market digest.
+
+Rules:
+- Report only the event items named above. If the filing also contains quarterly results, ignore the results.
+- company: the company's name as written in the filing.
+- routine: true only when someone following the company would not care, for example an ordinary pay plan or equity award, a routine director retirement at the end of a term, a technical bylaw edit, or renewing an existing credit line on similar terms. A change of CEO, CFO, president or board chair, an acquisition, a layoff, a write-down, a restatement, a bankruptcy or a delisting notice is never routine.
+- headline: one plain sentence, at most 25 words, saying what happened.
+- summary: one to three sentences on who or what is involved, effective dates, and any figures stated. Say what the filing gives as the reason, or that it gives none. When routine is true, keep it to one short sentence.
+- Use only what is in the filing. Do not speculate about causes or effects on the stock.
+- Write for a reader who is learning how markets work. Plain language, no hype, no investment advice.`
+
+var eventSchema = json.RawMessage(`{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["company","routine","headline","summary"],
+  "properties": {
+    "company": {"type": "string"},
+    "routine": {"type": "boolean"},
+    "headline": {"type": "string"},
+    "summary": {"type": "string"}
+  }
+}`)
+
+// maxEventChars bounds each document sent for an event filing.
+const maxEventChars = 30000
+
+// CompanyEvent summarizes a non-earnings 8-K.
+func (s *Summarizer) CompanyEvent(ctx context.Context, in EventInput) (model.EventNews, error) {
+	clip := func(t string) string {
+		if len(t) > maxEventChars {
+			return t[:maxEventChars]
+		}
+		return t
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Ticker: %s\nEvent items: %s\n\n<filing>\n%s\n</filing>", in.Ticker, strings.Join(in.Kinds, "; "), clip(in.Filing))
+	if in.Press != "" {
+		fmt.Fprintf(&b, "\n\n<press_release>\n%s\n</press_release>", clip(in.Press))
+	}
+	out, err := s.call(ctx, Request{
+		Model: s.ExtractionModel, Effort: s.Effort, System: eventSystem, User: b.String(), Schema: eventSchema,
+	})
+	if err != nil {
+		return model.EventNews{}, err
+	}
+	var n model.EventNews
+	if err := json.Unmarshal([]byte(out), &n); err != nil {
+		return model.EventNews{}, fmt.Errorf("parse event for %s: %w", in.Ticker, err)
+	}
+	return n, nil
+}

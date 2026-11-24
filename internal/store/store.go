@@ -62,6 +62,16 @@ CREATE TABLE IF NOT EXISTS call_notes (
 	notes     TEXT NOT NULL,
 	reported  INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS company_events (
+	accession TEXT PRIMARY KEY,
+	ticker    TEXT NOT NULL,
+	form      TEXT NOT NULL,
+	filed     TEXT NOT NULL,
+	items     TEXT NOT NULL DEFAULT '',
+	doc_url   TEXT NOT NULL DEFAULT '',
+	news      TEXT,
+	reported  INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS llm_cache (
 	key     TEXT PRIMARY KEY,
 	output  TEXT NOT NULL,
@@ -288,12 +298,17 @@ func (s *Store) UnreportedFilings() ([]model.Filing, error) {
 
 // MarkFilingsReported flags filings as included in a sent digest.
 func (s *Store) MarkFilingsReported(accessions []string) error {
+	return s.markReported("filings", accessions)
+}
+
+// markReported sets reported = 1 on the given rows of table.
+func (s *Store) markReported(table string, accessions []string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	for _, a := range accessions {
-		if _, err := tx.Exec(`UPDATE filings SET reported = 1 WHERE accession = ?`, a); err != nil {
+		if _, err := tx.Exec(`UPDATE `+table+` SET reported = 1 WHERE accession = ?`, a); err != nil {
 			_ = tx.Rollback()
 			return err
 		}
@@ -379,17 +394,7 @@ func (s *Store) CallNotesFiledBetween(from, to time.Time) ([]model.CallNote, err
 
 // MarkCallNotesReported flags call summaries as included in a sent digest.
 func (s *Store) MarkCallNotesReported(accessions []string) error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-	for _, a := range accessions {
-		if _, err := tx.Exec(`UPDATE call_notes SET reported = 1 WHERE accession = ?`, a); err != nil {
-			_ = tx.Rollback()
-			return err
-		}
-	}
-	return tx.Commit()
+	return s.markReported("call_notes", accessions)
 }
 
 func (s *Store) queryCallNotes(where string, args ...any) ([]model.CallNote, error) {
@@ -410,6 +415,75 @@ func (s *Store) queryCallNotes(where string, args ...any) ([]model.CallNote, err
 			return nil, fmt.Errorf("call note %s: %w", c.Accession, err)
 		}
 		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// SaveEvent stores a company event filing, keeping its reported flag.
+func (s *Store) SaveEvent(e model.CompanyEvent) error {
+	var news sql.NullString
+	if e.News != nil {
+		b, err := json.Marshal(e.News)
+		if err != nil {
+			return err
+		}
+		news = sql.NullString{String: string(b), Valid: true}
+	}
+	_, err := s.db.Exec(`INSERT INTO company_events (accession, ticker, form, filed, items, doc_url, news)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (accession) DO UPDATE SET items = excluded.items, doc_url = excluded.doc_url, news = excluded.news`,
+		e.Accession, e.Ticker, e.Form, e.Filed.Format(dateFmt), e.Items, e.DocURL, news)
+	return err
+}
+
+// Event returns one stored event filing, or nil if absent.
+func (s *Store) Event(accession string) (*model.CompanyEvent, error) {
+	es, err := s.queryEvents(`WHERE accession = ?`, accession)
+	if err != nil || len(es) == 0 {
+		return nil, err
+	}
+	return &es[0], nil
+}
+
+// UnreportedEvents returns event filings not yet included in a sent digest, oldest first.
+func (s *Store) UnreportedEvents() ([]model.CompanyEvent, error) {
+	return s.queryEvents(`WHERE reported = 0 ORDER BY filed, ticker`)
+}
+
+// EventsFiledBetween returns event filings with from < filed <= to, oldest first.
+func (s *Store) EventsFiledBetween(from, to time.Time) ([]model.CompanyEvent, error) {
+	return s.queryEvents(`WHERE filed > ? AND filed <= ? ORDER BY filed, ticker`,
+		from.Format(dateFmt), to.Format(dateFmt))
+}
+
+// MarkEventsReported flags event filings as included in a sent digest.
+func (s *Store) MarkEventsReported(accessions []string) error {
+	return s.markReported("company_events", accessions)
+}
+
+func (s *Store) queryEvents(where string, args ...any) ([]model.CompanyEvent, error) {
+	rows, err := s.db.Query(`SELECT accession, ticker, form, filed, items, doc_url, news, reported FROM company_events `+where, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.CompanyEvent
+	for rows.Next() {
+		var e model.CompanyEvent
+		var filed string
+		var news sql.NullString
+		if err := rows.Scan(&e.Accession, &e.Ticker, &e.Form, &filed, &e.Items, &e.DocURL, &news, &e.Reported); err != nil {
+			return nil, err
+		}
+		e.Filed, _ = time.ParseInLocation(dateFmt, filed, time.Local)
+		if news.Valid {
+			var n model.EventNews
+			if err := json.Unmarshal([]byte(news.String), &n); err != nil {
+				return nil, fmt.Errorf("event %s: %w", e.Accession, err)
+			}
+			e.News = &n
+		}
+		out = append(out, e)
 	}
 	return out, rows.Err()
 }

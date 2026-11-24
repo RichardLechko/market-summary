@@ -170,6 +170,7 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
     {{if .Macro}}<li><a href="#economy">Economy</a></li>{{end}}
     {{if .Fed}}<li><a href="#fed">Federal Reserve</a></li>{{end}}
     {{if or .Earnings .Calls .Aggregate}}<li><a href="#earnings">Earnings</a></li>{{end}}
+    {{if .News}}<li><a href="#news">Company news</a></li>{{end}}
     {{if .WeekAhead}}<li><a href="#ahead">Week ahead</a></li>{{end}}
     <li><a href="#terms">Terms</a></li>
   </ol>
@@ -276,6 +277,23 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
   </div>
   {{end}}
   <p class="source">Figures as reported in each company's press release; growth is computed from the release's year-ago column. Sources: SEC EDGAR; call transcripts from Alpha Vantage.</p>
+</section>
+{{end}}
+
+{{if .News}}
+<section id="news">
+  <h2>Company news</h2>
+  {{range .News}}
+  <article class="report">
+    <div class="report-head">
+      <a class="ticker" href="{{.Link}}">{{.Ticker}}</a>
+      <span class="meta">{{if .Company}}{{.Company}} · {{end}}{{.Kind}} · filed {{date .Filed}}</span>
+    </div>
+    {{if .Headline}}<p class="headline">{{.Headline}}</p>{{end}}
+    {{if .Summary}}<p class="summary">{{.Summary}}</p>{{end}}
+  </article>
+  {{end}}
+  <p class="source">Events companies on the watchlist reported to the SEC on Form 8-K, other than earnings. Routine filings, such as ordinary pay plans, are left out. Source: SEC EDGAR.</p>
 </section>
 {{end}}
 

@@ -59,6 +59,12 @@ func (f *fakeCaller) Call(_ context.Context, req summarize.Request) (string, err
 		}
 		return `{"matches_period":false,"tone":"","themes":[],"analyst_focus":[],"outlook":""}`, nil
 	}
+	if strings.Contains(req.System, "8-K filings that report company events") {
+		if strings.Contains(req.User, "PAY PLAN") {
+			return `{"company":"JPMorgan Chase","routine":true,"headline":"Pay plan amended.","summary":"Routine."}`, nil
+		}
+		return `{"company":"JPMorgan Chase","routine":false,"headline":"The CEO resigned.","summary":"No reason was given."}`, nil
+	}
 	if req.Schema != nil {
 		n := f.extractions.Add(1)
 		return fmt.Sprintf(`{"is_earnings_release":true,"company":"JPMorgan Chase","period":"Q%d 2026","unit":"USD millions",
@@ -107,16 +113,24 @@ func fixtureServer(t *testing.T) *httptest.Server {
 	})
 	mux.HandleFunc("/submissions/CIK0000019617.json", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, `{"filings":{"recent":{
-			"accessionNumber":["0000019617-26-000300","0000019617-26-000200","0000019617-26-000250","0000019617-26-000100"],
-			"filingDate":["2026-11-20","2026-11-19","2026-10-14","2026-08-14"],
-			"form":["8-K","8-K","8-K","8-K"],
-			"items":["2.02,9.01","8.01","2.02,9.01","2.02,9.01"],
-			"primaryDocument":["a.htm","b.htm","e.htm","c.htm"]},"files":[]}}`)
+			"accessionNumber":["0000019617-26-000310","0000019617-26-000305","0000019617-26-000300","0000019617-26-000200","0000019617-26-000250","0000019617-26-000100"],
+			"filingDate":["2026-11-22","2026-11-21","2026-11-20","2026-11-19","2026-10-14","2026-08-14"],
+			"form":["8-K","8-K","8-K","8-K","8-K","8-K"],
+			"items":["5.02,9.01","5.02","2.02,9.01","8.01","2.02,9.01","2.02,9.01"],
+			"primaryDocument":["f.htm","g.htm","a.htm","b.htm","e.htm","c.htm"]},"files":[]}}`)
 	})
 	mux.HandleFunc("/Archives/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "-index.htm") {
 			dir := r.URL.Path[:strings.LastIndex(r.URL.Path, "/")]
 			fmt.Fprintf(w, `<table class="tableFile"><tr><td>1</td><td>PR</td><td><a href="%s/ex991.htm">ex991.htm</a></td><td>EX-99.1</td></tr></table>`, dir)
+			return
+		}
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/f.htm"):
+			fmt.Fprint(w, `<html><body><p>Item 5.02. CEO RESIGNS effective immediately.</p></body></html>`)
+			return
+		case strings.HasSuffix(r.URL.Path, "/g.htm"):
+			fmt.Fprint(w, `<html><body><p>Item 5.02. PAY PLAN amended.</p></body></html>`)
 			return
 		}
 		fmt.Fprint(w, `<html><body><p>JPMorgan reports results</p><table><tr><td>Revenue</td><td>110</td><td>100</td></tr></table></body></html>`)
@@ -187,6 +201,9 @@ func TestRunEndToEnd(t *testing.T) {
 		"Minutes of the Federal Open Market Committee",
 		"The Fed held rates.",
 		"Lending grew.",
+		"Company news",
+		"The CEO resigned.",
+		"Leadership change",
 		"Revenue 110 USD millions (+10.0% y/y)",
 		"Consumer Price Index",
 		"FOMC meeting, decision Thu Nov 26",
@@ -194,6 +211,9 @@ func TestRunEndToEnd(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("digest missing %q", want)
 		}
+	}
+	if strings.Contains(body, "Pay plan amended.") {
+		t.Error("routine event shown")
 	}
 	// Current release plus the prior quarter for the standard-depth comparison.
 	if n := caller.extractions.Load(); n != 2 {
@@ -217,6 +237,9 @@ func TestRunEndToEnd(t *testing.T) {
 	third := readPage(t, res.Path)
 	if strings.Contains(third, "Lending grew.") {
 		t.Error("already-reported filing repeated")
+	}
+	if strings.Contains(third, "The CEO resigned.") {
+		t.Error("already-reported event repeated")
 	}
 	if !strings.Contains(third, "Market summary: Nov 24 – Dec 2") {
 		t.Error("window should start at previous cutoff")

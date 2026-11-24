@@ -44,6 +44,7 @@ type Digest struct {
 	Fed         []model.FedDoc
 	Earnings    []EarningsSector
 	Calls       []CallView // earnings call notes
+	News        []NewsView // non-earnings company filings
 	Aggregate   *AggregateView
 	WeekAhead   []AheadItem
 	Notes       []string // sections that were unavailable and why
@@ -260,6 +261,12 @@ func (d *Digest) Brief() string {
 			b.WriteString("\n")
 		}
 	}
+	if len(d.News) > 0 {
+		b.WriteString("\nCompany news (SEC filings):\n")
+		for _, n := range d.News {
+			fmt.Fprintf(&b, "- %s %s (%s, filed %s): %s %s\n", n.Ticker, n.Kind, n.Company, n.Filed.Format("2006-01-02"), n.Headline, n.Summary)
+		}
+	}
 	if d.Aggregate != nil {
 		b.WriteString("\nEarnings season so far:\n")
 		for _, l := range append(append([]string{}, d.Aggregate.Lines...), d.Aggregate.Sectors...) {
@@ -292,4 +299,15 @@ func NewCallView(n model.CallNote, company string) CallView {
 		Ticker: n.Ticker, Company: company, Period: n.Period,
 		Tone: n.Notes.Tone, Themes: n.Notes.Themes, AnalystFocus: n.Notes.AnalystFocus, Outlook: n.Notes.Outlook,
 	}
+}
+
+// NewsView is one rendered company event, such as a leadership change.
+type NewsView struct {
+	Ticker   string
+	Company  string
+	Kind     string // e.g. "Leadership change"
+	Filed    time.Time
+	Headline string
+	Summary  string
+	Link     string
 }
