@@ -35,3 +35,8 @@ releases:
   - Producer Price Index
   - Job Openings and Labor Turnover Survey
   - Surveys of Consumers
+
+# Folder for the database copies made after each send (the newest 4 are
+# kept). Empty means data/backups. A synced folder such as OneDrive keeps a
+# copy off this PC.
+backup_dir: ""

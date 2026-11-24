@@ -44,7 +44,8 @@ run       build the summary, open it in the browser, and email it with a PDF,
 --no-open do not open the summary in the browser
 --since   with --dry-run or --force, cover the period from a date (YYYY-MM-DD)
 open      open the latest summary in the browser
-status    show the last send date and when the next summary is due`)
+status    show the last send, next due date, last failure and backup, today's
+          Alpha Vantage use, and check each service and the scheduled task`)
 }
 
 func run(args []string) int {
@@ -67,9 +68,13 @@ func run(args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
+	scheduled := cmd == "run" && !*dry
 	cfg, err := config.Load(absRoot)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "config:", err)
+		if scheduled {
+			recordFailure(filepath.Join(absRoot, "data"), nil, fmt.Errorf("config: %w", err), "", time.Now())
+		}
 		return 1
 	}
 	if err := os.MkdirAll(cfg.DataDir(), 0o755); err != nil {
@@ -79,15 +84,19 @@ func run(args []string) int {
 	st, err := store.Open(filepath.Join(cfg.DataDir(), "market-summary.db"))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "store:", err)
+		if scheduled {
+			recordFailure(cfg.DataDir(), mailer(cfg), fmt.Errorf("store: %w", err), "", time.Now())
+		}
 		return 1
 	}
 	defer st.Close()
 
 	p := newPipeline(cfg, st, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	p.AV.OnRequest = countAV(st)
 
 	switch cmd {
 	case "status":
-		return status(p)
+		return status(cfg, p)
 	case "open":
 		latest := filepath.Join(cfg.DataDir(), "digests", "latest.html")
 		if _, err := os.Stat(latest); err != nil {
@@ -142,10 +151,21 @@ func run(args []string) int {
 			return 2
 		}
 	}
-	res, err := p.Run(ctx, opts)
+	res, err := runSafely(ctx, p, opts)
 	if err != nil {
 		p.Log.Error("run failed", "err", err)
+		if !*dry {
+			recordFailure(cfg.DataDir(), mailer(cfg), err, logFile.Name(), now)
+		}
 		return 1
+	}
+	if res.Sent {
+		clearFailure(cfg.DataDir())
+		if path, err := backup(cfg, st, now); err != nil {
+			p.Log.Error("backup failed", "err", err)
+		} else {
+			p.Log.Info("database backed up", "path", path)
+		}
 	}
 	switch {
 	case res.NotDue:
@@ -174,10 +194,7 @@ func newPipeline(cfg *config.Config, st *store.Store, log *slog.Logger) *pipelin
 		// SEC allows 10 requests/second; stay under it.
 		EDGAR: &collect.EDGAR{HTTP: httpx.New(sec.SECUserAgent, 120*time.Millisecond)},
 		AV:    &collect.AlphaVantage{HTTP: alpha, Key: sec.AlphaVantageKey},
-		Mail: digest.Mail{
-			Host: sec.SMTPHost, Port: sec.SMTPPort, User: sec.SMTPUser,
-			Password: sec.SMTPPassword, From: sec.MailFrom, To: sec.MailTo,
-		},
+		Mail:  mailer(cfg),
 	}
 	if browser, err := digest.FindBrowser(cfg.Settings.BrowserPath); err != nil {
 		log.Warn("PDF disabled", "err", err)
@@ -199,33 +216,29 @@ func newPipeline(cfg *config.Config, st *store.Store, log *slog.Logger) *pipelin
 	return p
 }
 
-func status(p *pipeline.Pipeline) int {
-	now := time.Now()
-	d, err := p.Gate(now)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	last, _ := p.Store.Meta("last_sent_date")
-	start, _ := p.WindowStart(now)
-	if last == "" {
-		fmt.Println("Last sent:   never")
-	} else {
-		fmt.Println("Last sent:  ", last)
-	}
-	if d.Due {
-		fmt.Println("Next digest: due now")
-	} else {
-		fmt.Println("Next digest:", d.NextEligible.Format("Mon 2006-01-02"))
-	}
-	fmt.Printf("Would cover: %s to now\n", start.Format("Mon 2006-01-02 15:04"))
-	return 0
-}
-
 func openLog(cfg *config.Config, now time.Time) (*os.File, error) {
 	dir := filepath.Join(cfg.DataDir(), "logs")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
 	return os.OpenFile(filepath.Join(dir, "run-"+now.Format("2006-01-02-150405")+".log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+}
+
+func mailer(cfg *config.Config) digest.Mail {
+	sec := cfg.Secrets
+	return digest.Mail{
+		Host: sec.SMTPHost, Port: sec.SMTPPort, User: sec.SMTPUser,
+		Password: sec.SMTPPassword, From: sec.MailFrom, To: sec.MailTo,
+	}
+}
+
+// runSafely runs the pipeline, turning a crash into an error so it is
+// recorded and alerted like any other failure.
+func runSafely(ctx context.Context, p *pipeline.Pipeline, opts pipeline.Options) (res pipeline.Result, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("crashed: %v", r)
+		}
+	}()
+	return p.Run(ctx, opts)
 }

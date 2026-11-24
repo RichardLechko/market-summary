@@ -70,3 +70,11 @@ func (c *Claude) Call(ctx context.Context, req Request) (string, error) {
 	}
 	return out, nil
 }
+
+// Check confirms the API key works by listing one model, which is free.
+func (c *Claude) Check(ctx context.Context) error {
+	if _, err := c.client.Models.List(ctx, anthropic.ModelListParams{Limit: anthropic.Int(1)}); err != nil {
+		return fmt.Errorf("claude: %w", err)
+	}
+	return nil
+}

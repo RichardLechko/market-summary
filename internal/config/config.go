@@ -68,6 +68,8 @@ type Settings struct {
 	OpenInBrowser   bool     `yaml:"open_in_browser"`
 	BrowserPath     string   `yaml:"browser_path"`
 	Releases        []string `yaml:"releases"`
+	// BackupDir holds weekly database copies; empty means data/backups.
+	BackupDir string `yaml:"backup_dir"`
 }
 
 // Secrets come from the environment.

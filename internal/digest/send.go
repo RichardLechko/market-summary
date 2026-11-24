@@ -2,6 +2,7 @@ package digest
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -135,4 +136,28 @@ func (m Mail) Send(subject, html string, atts ...Attachment) error {
 	}
 	auth := smtp.PlainAuth("", m.User, m.Password, m.Host)
 	return smtp.SendMail(net.JoinHostPort(m.Host, m.Port), auth, m.From, m.To, msg)
+}
+
+// Check connects to the mail server and signs in without sending anything.
+func (m Mail) Check() error {
+	if err := m.Validate(); err != nil {
+		return err
+	}
+	c, err := smtp.Dial(net.JoinHostPort(m.Host, m.Port))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = c.Close() }()
+	if err := c.Hello("localhost"); err != nil {
+		return err
+	}
+	if ok, _ := c.Extension("STARTTLS"); ok {
+		if err := c.StartTLS(&tls.Config{ServerName: m.Host}); err != nil {
+			return err
+		}
+	}
+	if err := c.Auth(smtp.PlainAuth("", m.User, m.Password, m.Host)); err != nil {
+		return err
+	}
+	return c.Quit()
 }

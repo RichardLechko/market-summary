@@ -556,3 +556,9 @@ func (s *Store) queryInsider(where string, args ...any) ([]model.InsiderFiling, 
 	}
 	return out, rows.Err()
 }
+
+// Backup writes a consistent copy of the database to path, which must not exist.
+func (s *Store) Backup(path string) error {
+	_, err := s.db.Exec(`VACUUM INTO ?`, path)
+	return err
+}

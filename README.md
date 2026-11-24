@@ -55,7 +55,7 @@ go run ./cmd/market-summary run --force                      # send now
 go run ./cmd/market-summary run --force --since 2026-11-16   # send now, covering a chosen period
 go run ./cmd/market-summary run                              # send only if 7+ days since the last send
 go run ./cmd/market-summary open                             # reopen the latest summary
-go run ./cmd/market-summary status                           # last send, next due date
+go run ./cmd/market-summary status                           # last send, next due date, failures, backups, service checks
 ```
 
 The PDF is printed by Edge or Chrome in headless mode; set `browser_path` in `config/settings.yaml` if neither is in the default location. Set `open_in_browser: false` to stop the page opening after each run.
@@ -65,6 +65,8 @@ Schedule it:
 ```powershell
 pwsh -File scripts\install-task.ps1
 ```
+
+If a scheduled or forced run fails, you get a short "Market summary failed" email with the error (at most one a day), and `status` shows it until the next successful send. After each send the database is copied to `dataackups` (or `backup_dir` in `config/settings.yaml`); the newest 4 copies are kept. To restore one, copy it over `datamarket-summary.db`.
 
 Remove the schedule:
 

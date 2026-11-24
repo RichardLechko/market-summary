@@ -120,3 +120,27 @@ func TestCallNotes(t *testing.T) {
 		t.Errorf("between: got %d", len(got))
 	}
 }
+
+func TestBackup(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(filepath.Join(dir, "a.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if err := s.SetMeta("k", "v"); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(dir, "copy.db")
+	if err := s.Backup(dst); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Open(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	if v, _ := c.Meta("k"); v != "v" {
+		t.Errorf("backup meta = %q", v)
+	}
+}

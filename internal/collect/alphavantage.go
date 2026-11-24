@@ -25,6 +25,9 @@ type AlphaVantage struct {
 	HTTP    *httpx.Client
 	Key     string
 	BaseURL string // default https://www.alphavantage.co/query
+	// OnRequest, if set, is called before each request, to count usage
+	// against the daily limit.
+	OnRequest func()
 }
 
 // TranscriptPart is one speaker turn.
@@ -43,7 +46,7 @@ func (t *AlphaVantage) Transcript(ctx context.Context, ticker, quarter string) (
 		"quarter":  {quarter},
 		"apikey":   {t.Key},
 	}
-	body, err := t.HTTP.Get(ctx, t.base()+"?"+q.Encode())
+	body, err := t.HTTP.Get(ctx, t.endpoint(q))
 	if err != nil {
 		return nil, redactKey(err, t.Key)
 	}
@@ -108,7 +111,7 @@ func (t *AlphaVantage) Daily(ctx context.Context, symbol string) ([]stats.Obs, e
 		"symbol":   {symbol},
 		"apikey":   {t.Key},
 	}
-	body, err := t.HTTP.Get(ctx, t.base()+"?"+q.Encode())
+	body, err := t.HTTP.Get(ctx, t.endpoint(q))
 	if err != nil {
 		return nil, redactKey(err, t.Key)
 	}
@@ -142,6 +145,14 @@ func (t *AlphaVantage) Daily(ctx context.Context, symbol string) ([]stats.Obs, e
 	return stats.Sorted(out), nil
 }
 
+// endpoint returns the request URL for q and counts the request.
+func (t *AlphaVantage) endpoint(q url.Values) string {
+	if t.OnRequest != nil {
+		t.OnRequest()
+	}
+	return t.base() + "?" + q.Encode()
+}
+
 func (t *AlphaVantage) base() string {
 	if t.BaseURL != "" {
 		return t.BaseURL
@@ -164,7 +175,7 @@ func (t *AlphaVantage) EarningsCalendar(ctx context.Context) ([]CalendarEntry, e
 		"horizon":  {"3month"},
 		"apikey":   {t.Key},
 	}
-	body, err := t.HTTP.Get(ctx, t.base()+"?"+q.Encode())
+	body, err := t.HTTP.Get(ctx, t.endpoint(q))
 	if err != nil {
 		return nil, redactKey(err, t.Key)
 	}
