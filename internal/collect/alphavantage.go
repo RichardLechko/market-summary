@@ -12,14 +12,15 @@ import (
 	"time"
 
 	"github.com/RichardLechko/market-summary/internal/httpx"
+	"github.com/RichardLechko/market-summary/internal/stats"
 )
 
-// ErrTranscriptLimit means Alpha Vantage refused the request because the
+// ErrAVLimit means Alpha Vantage refused the request because the
 // daily or per-minute quota is used up. Stop asking for this run.
-var ErrTranscriptLimit = errors.New("alpha vantage request limit reached")
+var ErrAVLimit = errors.New("alpha vantage request limit reached")
 
-// Transcripts fetches earnings call transcripts from Alpha Vantage.
-type Transcripts struct {
+// AlphaVantage fetches earnings call transcripts and daily prices from Alpha Vantage.
+type AlphaVantage struct {
 	HTTP    *httpx.Client
 	Key     string
 	BaseURL string // default https://www.alphavantage.co/query
@@ -34,18 +35,14 @@ type TranscriptPart struct {
 
 // Transcript returns the call transcript for ticker and quarter ("2026Q3").
 // It returns nil parts, no error, when the transcript is not available.
-func (t *Transcripts) Transcript(ctx context.Context, ticker, quarter string) ([]TranscriptPart, error) {
-	base := t.BaseURL
-	if base == "" {
-		base = "https://www.alphavantage.co/query"
-	}
+func (t *AlphaVantage) Transcript(ctx context.Context, ticker, quarter string) ([]TranscriptPart, error) {
 	q := url.Values{
 		"function": {"EARNINGS_CALL_TRANSCRIPT"},
 		"symbol":   {ticker},
 		"quarter":  {quarter},
 		"apikey":   {t.Key},
 	}
-	body, err := t.HTTP.Get(ctx, base+"?"+q.Encode())
+	body, err := t.HTTP.Get(ctx, t.base()+"?"+q.Encode())
 	if err != nil {
 		return nil, redactKey(err, t.Key)
 	}
@@ -59,7 +56,7 @@ func (t *Transcripts) Transcript(ctx context.Context, ticker, quarter string) ([
 		return nil, fmt.Errorf("transcript %s %s: %w", ticker, quarter, err)
 	}
 	if resp.Information != "" || resp.Note != "" {
-		return nil, ErrTranscriptLimit
+		return nil, ErrAVLimit
 	}
 	return resp.Transcript, nil
 }
@@ -100,4 +97,53 @@ func TranscriptQuarters(period string, filed time.Time) []string {
 		out = append(out, cal)
 	}
 	return out
+}
+
+// Daily returns daily closing prices for a stock or fund symbol, about the
+// last 100 trading days (the free "compact" output), oldest first.
+func (t *AlphaVantage) Daily(ctx context.Context, symbol string) ([]stats.Obs, error) {
+	q := url.Values{
+		"function": {"TIME_SERIES_DAILY"},
+		"symbol":   {symbol},
+		"apikey":   {t.Key},
+	}
+	body, err := t.HTTP.Get(ctx, t.base()+"?"+q.Encode())
+	if err != nil {
+		return nil, redactKey(err, t.Key)
+	}
+	var resp struct {
+		Series      map[string]map[string]string `json:"Time Series (Daily)"`
+		Information string                       `json:"Information"`
+		Note        string                       `json:"Note"`
+		Error       string                       `json:"Error Message"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("daily %s: %w", symbol, err)
+	}
+	switch {
+	case resp.Information != "" || resp.Note != "":
+		return nil, ErrAVLimit
+	case resp.Error != "":
+		return nil, fmt.Errorf("daily %s: %s", symbol, resp.Error)
+	}
+	var out []stats.Obs
+	for day, v := range resp.Series {
+		d, err := time.ParseInLocation("2006-01-02", day, time.Local)
+		if err != nil {
+			continue
+		}
+		c, err := strconv.ParseFloat(v["4. close"], 64)
+		if err != nil {
+			continue
+		}
+		out = append(out, stats.Obs{Date: d, Value: c})
+	}
+	return stats.Sorted(out), nil
+}
+
+func (t *AlphaVantage) base() string {
+	if t.BaseURL != "" {
+		return t.BaseURL
+	}
+	return "https://www.alphavantage.co/query"
 }

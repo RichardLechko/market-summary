@@ -3,6 +3,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -56,7 +57,7 @@ type Pipeline struct {
 	FRED  *collect.FRED
 	Fed   *collect.Fed
 	EDGAR *collect.EDGAR
-	Calls *collect.Transcripts  // earnings call transcripts; nil disables call notes
+	AV    *collect.AlphaVantage // call transcripts and fund prices; nil or no key disables both
 	Sum   *summarize.Summarizer // nil when no API key is configured
 	Mail  Sender
 	// PrintPDF renders the page to a PDF for the email; nil skips the PDF.
@@ -226,11 +227,24 @@ func (p *Pipeline) macro(ctx context.Context, d *digest.Digest, start, now time.
 	}
 	since := now.AddDate(-2, -1, 0)
 	failed := 0
+	avLimited := false
 	for _, s := range p.Cfg.Series {
-		obs, err := p.FRED.Observations(ctx, s.ID, since)
+		var obs []stats.Obs
+		var err error
+		switch {
+		case s.Source != "alphavantage":
+			obs, err = p.FRED.Observations(ctx, s.ID, since)
+		case p.AV == nil || p.AV.Key == "" || avLimited:
+			continue // shown from stored prices if any; dropped otherwise
+		default:
+			obs, err = p.AV.Daily(ctx, s.ID)
+			if errors.Is(err, collect.ErrAVLimit) {
+				avLimited = true
+			}
+		}
 		if err != nil {
 			failed++
-			p.Log.Error("fred series failed", "series", s.ID, "err", err)
+			p.Log.Error("series refresh failed", "series", s.ID, "err", err)
 			continue
 		}
 		if err := p.Store.UpsertObservations(s.ID, obs); err != nil {
@@ -238,7 +252,7 @@ func (p *Pipeline) macro(ctx context.Context, d *digest.Digest, start, now time.
 		}
 	}
 	if failed > 0 {
-		d.Notes = append(d.Notes, fmt.Sprintf("%d FRED series could not be refreshed; stored values were used.", failed))
+		d.Notes = append(d.Notes, fmt.Sprintf("%d market series could not be refreshed; stored values were used.", failed))
 	}
 
 	data := map[string][]stats.Obs{}
@@ -516,7 +530,7 @@ func (p *Pipeline) backfill(ctx context.Context, c config.Company, cik int, sf c
 	if p.Sum == nil {
 		return
 	}
-	if f, err := p.Store.Filing(sf.Accession); err != nil || f != nil {
+	if f, err := p.Store.Filing(sf.Accession); err != nil || (f != nil && f.Facts != nil) {
 		return
 	}
 	headline := c

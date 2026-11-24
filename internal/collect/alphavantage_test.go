@@ -43,7 +43,7 @@ func TestTranscript(t *testing.T) {
 		fmt.Fprint(w, body)
 	}))
 	defer srv.Close()
-	tr := &Transcripts{HTTP: httpx.New("test", 0), Key: "k", BaseURL: srv.URL}
+	tr := &AlphaVantage{HTTP: httpx.New("test", 0), Key: "k", BaseURL: srv.URL}
 	ctx := context.Background()
 
 	body = `{"symbol":"IBM","quarter":"2024Q1","transcript":[{"speaker":"Arvind","title":"CEO","content":" Thanks. ","sentiment":"0.6"}]}`
@@ -61,7 +61,32 @@ func TestTranscript(t *testing.T) {
 	}
 
 	body = `{"Information":"Our standard API rate limit is 25 requests per day."}`
-	if _, err := tr.Transcript(ctx, "IBM", "2024Q1"); !errors.Is(err, ErrTranscriptLimit) {
+	if _, err := tr.Transcript(ctx, "IBM", "2024Q1"); !errors.Is(err, ErrAVLimit) {
+		t.Errorf("limit: err = %v", err)
+	}
+}
+
+func TestDaily(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("function") != "TIME_SERIES_DAILY" || r.URL.Query().Get("symbol") != "GLD" {
+			t.Errorf("query = %s", r.URL.RawQuery)
+		}
+		fmt.Fprint(w, body)
+	}))
+	defer srv.Close()
+	av := &AlphaVantage{HTTP: httpx.New("test", 0), Key: "k", BaseURL: srv.URL}
+
+	body = `{"Meta Data":{"2. Symbol":"GLD"},"Time Series (Daily)":{
+		"2026-11-20":{"1. open":"380.0","4. close":"381.25","5. volume":"1"},
+		"2026-11-19":{"1. open":"379.0","4. close":"379.50","5. volume":"1"}}}`
+	obs, err := av.Daily(context.Background(), "GLD")
+	if err != nil || len(obs) != 2 || obs[0].Value != 379.5 || obs[1].Value != 381.25 || !obs[0].Date.Before(obs[1].Date) {
+		t.Fatalf("got %+v %v", obs, err)
+	}
+
+	body = `{"Note":"Thank you for using Alpha Vantage! Our standard API call frequency is 25 requests per day."}`
+	if _, err := av.Daily(context.Background(), "GLD"); !errors.Is(err, ErrAVLimit) {
 		t.Errorf("limit: err = %v", err)
 	}
 }

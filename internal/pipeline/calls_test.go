@@ -42,7 +42,7 @@ func TestCallNotes(t *testing.T) {
 	sender := &fakeSender{}
 	p := newTestPipeline(t, srv, &fakeCaller{}, sender)
 	p.Cfg.Watchlist[0].Depth = "deep"
-	p.Calls = &collect.Transcripts{HTTP: httpx.New("test", 0), Key: "k", BaseURL: av.URL}
+	p.AV = &collect.AlphaVantage{HTTP: httpx.New("test", 0), Key: "k", BaseURL: av.URL}
 	ctx := context.Background()
 
 	res, err := p.Run(ctx, Options{Now: now0})
@@ -81,7 +81,7 @@ func TestCallNotesLimitAndMissingKey(t *testing.T) {
 	av := transcriptServer(t, true, &hits)
 	p := newTestPipeline(t, srv, &fakeCaller{}, &fakeSender{})
 	p.Cfg.Watchlist[0].Depth = "deep"
-	p.Calls = &collect.Transcripts{HTTP: httpx.New("test", 0), Key: "k", BaseURL: av.URL}
+	p.AV = &collect.AlphaVantage{HTTP: httpx.New("test", 0), Key: "k", BaseURL: av.URL}
 
 	res, err := p.Run(context.Background(), Options{Now: now0, DryRun: true})
 	if err != nil {
@@ -91,7 +91,7 @@ func TestCallNotesLimitAndMissingKey(t *testing.T) {
 		t.Errorf("limit: want no notes and one request, got %d requests", hits.Load())
 	}
 
-	p.Calls = nil
+	p.AV = nil
 	res, err = p.Run(context.Background(), Options{Now: now0, DryRun: true})
 	if err != nil {
 		t.Fatal(err)

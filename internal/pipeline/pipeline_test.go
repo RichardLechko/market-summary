@@ -313,3 +313,38 @@ func TestEmailAttachesPDF(t *testing.T) {
 		t.Fatalf("email body should be the short version:\n%s", email)
 	}
 }
+
+// failFirstCaller fails every extraction on its first pass, then behaves
+// like fakeCaller.
+type failFirstCaller struct {
+	fakeCaller
+	failing atomic.Bool
+}
+
+func (f *failFirstCaller) Call(ctx context.Context, req summarize.Request) (string, error) {
+	if f.failing.Load() && req.Schema != nil {
+		return "", errors.New("claude: response hit max_tokens")
+	}
+	return f.fakeCaller.Call(ctx, req)
+}
+
+func TestBackfillRetriesFailedExtraction(t *testing.T) {
+	srv := fixtureServer(t)
+	caller := &failFirstCaller{}
+	caller.failing.Store(true)
+	p := newTestPipeline(t, srv, caller, &fakeSender{})
+	p.Cfg.Watchlist[0].Depth = "headline"
+	if _, err := p.Run(context.Background(), Options{Now: now0, DryRun: true}); err != nil {
+		t.Fatal(err)
+	}
+	if f, _ := p.Store.Filing("0000019617-26-000250"); f != nil && f.Facts != nil {
+		t.Fatal("extraction should have failed on the first run")
+	}
+	caller.failing.Store(false)
+	if _, err := p.Run(context.Background(), Options{Now: now0, DryRun: true}); err != nil {
+		t.Fatal(err)
+	}
+	if f, _ := p.Store.Filing("0000019617-26-000250"); f == nil || f.Facts == nil {
+		t.Fatal("failed backfill was not retried")
+	}
+}

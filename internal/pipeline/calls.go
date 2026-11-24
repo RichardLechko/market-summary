@@ -47,7 +47,7 @@ func (p *Pipeline) calls(ctx context.Context, d *digest.Digest, start, now time.
 
 	switch {
 	case len(pending) == 0:
-	case p.Calls == nil || p.Calls.Key == "":
+	case p.AV == nil || p.AV.Key == "":
 		d.Notes = append(d.Notes, "Earnings call notes unavailable: ALPHAVANTAGE_API_KEY is not set.")
 	case p.Sum == nil:
 	default:
@@ -79,8 +79,8 @@ func (p *Pipeline) calls(ctx context.Context, d *digest.Digest, start, now time.
 func (p *Pipeline) fetchCalls(ctx context.Context, pending []model.Filing) {
 	for _, f := range pending {
 		for _, q := range collect.TranscriptQuarters(f.Facts.Period, f.Filed) {
-			parts, err := p.Calls.Transcript(ctx, f.Ticker, q)
-			if errors.Is(err, collect.ErrTranscriptLimit) {
+			parts, err := p.AV.Transcript(ctx, f.Ticker, q)
+			if errors.Is(err, collect.ErrAVLimit) {
 				p.Log.Warn("alpha vantage limit reached; remaining transcripts next run")
 				return
 			}

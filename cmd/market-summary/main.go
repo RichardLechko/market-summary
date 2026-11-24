@@ -163,6 +163,8 @@ func run(args []string) int {
 func newPipeline(cfg *config.Config, st *store.Store, log *slog.Logger) *pipeline.Pipeline {
 	sec := cfg.Secrets
 	general := httpx.New("market-summary/1.0", 0)
+	// Alpha Vantage throttles bursts on the free tier; space requests out.
+	alpha := httpx.New("market-summary/1.0", 1500*time.Millisecond)
 	p := &pipeline.Pipeline{
 		Cfg:   cfg,
 		Store: st,
@@ -171,7 +173,7 @@ func newPipeline(cfg *config.Config, st *store.Store, log *slog.Logger) *pipelin
 		Fed:   &collect.Fed{HTTP: general},
 		// SEC allows 10 requests/second; stay under it.
 		EDGAR: &collect.EDGAR{HTTP: httpx.New(sec.SECUserAgent, 120*time.Millisecond)},
-		Calls: &collect.Transcripts{HTTP: general, Key: sec.AlphaVantageKey},
+		AV:    &collect.AlphaVantage{HTTP: alpha, Key: sec.AlphaVantageKey},
 		Mail: digest.Mail{
 			Host: sec.SMTPHost, Port: sec.SMTPPort, User: sec.SMTPUser,
 			Password: sec.SMTPPassword, From: sec.MailFrom, To: sec.MailTo,

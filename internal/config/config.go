@@ -31,6 +31,7 @@ type Series struct {
 	Unit      string  `yaml:"unit"`
 	About     string  `yaml:"about"`
 	Threshold float64 `yaml:"flag_threshold"`
+	Source    string  `yaml:"source"` // "" or fred (default), alphavantage (fund and stock prices)
 }
 
 // Company is one watchlist entry.
@@ -170,6 +171,11 @@ func (c *Config) validate() error {
 		case "price", "rate", "index_yoy", "monthly_change", "level":
 		default:
 			return fmt.Errorf("series %s: unknown kind %q", s.ID, s.Kind)
+		}
+		switch s.Source {
+		case "", "fred", "alphavantage":
+		default:
+			return fmt.Errorf("series %s: unknown source %q", s.ID, s.Source)
 		}
 	}
 	for _, co := range c.Watchlist {

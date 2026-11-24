@@ -1,4 +1,6 @@
-# FRED series shown in the summary.
+# Series shown in the summary. Data comes from FRED unless source is
+# alphavantage (daily closing prices for funds and stocks; needs
+# ALPHAVANTAGE_API_KEY and uses one of its 25 daily requests per series per run).
 #
 # kind:
 #   price           daily level, change in % since the last summary
@@ -13,23 +15,30 @@
 
 series:
   - id: SP500
-    name: S&P 500
+    name: S&P 500 (SPY)
     group: Market
     kind: price
     flag_threshold: 2
     about: The 500 largest US companies. The usual shorthand for "the stock market."
-  - id: NASDAQCOM
-    name: Nasdaq Composite
+  - id: NASDAQ100
+    name: Nasdaq-100 (QQQ)
     group: Market
     kind: price
     flag_threshold: 3
-    about: Weighted heavily toward technology companies, so it swings more than the S&P 500.
+    about: The 100 largest non-financial companies on the Nasdaq, mostly technology. Swings more than the S&P 500.
   - id: DJIA
-    name: Dow Jones Industrial
+    name: Dow Jones Industrial (DIA)
     group: Market
     kind: price
     flag_threshold: 2
     about: 30 large, established US companies. The oldest index, narrower than the S&P 500.
+  - id: IWM
+    name: Small companies (IWM)
+    source: alphavantage
+    group: Market
+    kind: price
+    flag_threshold: 3
+    about: Fund tracking the Russell 2000, about 2,000 smaller US companies. More sensitive to interest rates and the US economy than the big indexes.
   - id: VIXCLS
     name: VIX
     group: Market
@@ -55,6 +64,13 @@ series:
     kind: rate
     flag_threshold: 15
     about: The benchmark long-term rate. Mortgages and corporate loans are priced off it.
+  - id: TLT
+    name: Long-term Treasury bonds (TLT)
+    source: alphavantage
+    group: Rates
+    kind: price
+    flag_threshold: 3
+    about: Fund holding government bonds that mature in 20+ years. Its price moves opposite to long-term interest rates.
   - id: T10Y2Y
     name: 10-year minus 2-year
     group: Rates
@@ -118,3 +134,17 @@ series:
     kind: price
     flag_threshold: 5
     about: US crude oil price. Feeds into gas prices and inflation.
+  - id: GLD
+    name: Gold (GLD)
+    source: alphavantage
+    group: Commodities
+    kind: price
+    flag_threshold: 3
+    about: Fund that holds physical gold. Investors buy gold when worried about inflation, a weaker dollar, or turmoil.
+
+  - id: DTWEXBGS
+    name: US dollar (broad index)
+    group: Currency
+    kind: price
+    flag_threshold: 1.5
+    about: The dollar against the currencies of major US trading partners; a broader version of the DXY. A stronger dollar makes imports cheaper and hurts US exporters.
