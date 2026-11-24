@@ -90,3 +90,43 @@ func TestDaily(t *testing.T) {
 		t.Errorf("limit: err = %v", err)
 	}
 }
+
+func TestEarningsCalendar(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("function") != "EARNINGS_CALENDAR" {
+			t.Errorf("query = %s", r.URL.RawQuery)
+		}
+		fmt.Fprint(w, body)
+	}))
+	defer srv.Close()
+	av := &AlphaVantage{HTTP: httpx.New("test", 0), Key: "k", BaseURL: srv.URL}
+
+	body = "symbol,name,reportDate,fiscalDateEnding,estimate,currency,timeOfTheDay\r\n" +
+		"CRWD,CROWDSTRIKE HOLDINGS INCORPORATED,2026-12-01,2026-10-31,0.0,USD,post-market\r\n" +
+		"ABC,\"ABC, INC\",2026-12-02,2026-10-31,,USD,\r\n" +
+		"BAD,BAD ROW,not-a-date,,,USD,\r\n"
+	es, err := av.EarningsCalendar(context.Background())
+	if err != nil || len(es) != 2 {
+		t.Fatalf("got %+v %v", es, err)
+	}
+	if es[0].Symbol != "CRWD" || es[0].Date.Format("2006-01-02") != "2026-12-01" || es[0].Time != "post-market" || es[1].Time != "" {
+		t.Errorf("entries = %+v", es)
+	}
+
+	body = `{"Information":"Thank you for using Alpha Vantage! Our standard API rate limit is 25 requests per day."}`
+	if _, err := av.EarningsCalendar(context.Background()); !errors.Is(err, ErrAVLimit) {
+		t.Errorf("limit: err = %v", err)
+	}
+}
+
+func TestEarningsCalendarLimitAsCSV(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, "symbol,name,reportDate,fiscalDateEnding,estimate,currency,timeOfTheDay\r\nI,n,f,o,r,m,a\r\n")
+	}))
+	defer srv.Close()
+	av := &AlphaVantage{HTTP: httpx.New("test", 0), Key: "k", BaseURL: srv.URL}
+	if _, err := av.EarningsCalendar(context.Background()); !errors.Is(err, ErrAVLimit) {
+		t.Errorf("err = %v, want ErrAVLimit", err)
+	}
+}

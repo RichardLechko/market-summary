@@ -170,7 +170,7 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
     {{if .Macro}}<li><a href="#economy">Economy</a></li>{{end}}
     {{if .Fed}}<li><a href="#fed">Federal Reserve</a></li>{{end}}
     {{if or .Earnings .Calls .Aggregate}}<li><a href="#earnings">Earnings</a></li>{{end}}
-    {{if or .News .Insiders}}<li><a href="#news">Company news</a></li>{{end}}
+    {{if or .News .Insiders .Clusters}}<li><a href="#news">Company news</a></li>{{end}}
     {{if .WeekAhead}}<li><a href="#ahead">Week ahead</a></li>{{end}}
     <li><a href="#terms">Terms</a></li>
   </ol>
@@ -280,7 +280,7 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
 </section>
 {{end}}
 
-{{if or .News .Insiders}}
+{{if or .News .Insiders .Clusters}}
 <section id="news">
   <h2>Company news</h2>
   {{range .News}}
@@ -293,8 +293,17 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
     {{if .Summary}}<p class="summary">{{.Summary}}</p>{{end}}
   </article>
   {{end}}
-  {{if .Insiders}}
+  {{if or .Insiders .Clusters}}
   <h3>Insider trades</h3>
+  {{range .Clusters}}
+  <article class="report">
+    <div class="report-head">
+      <span class="ticker">{{.Ticker}}</span>
+      <span class="meta">Several insiders buying</span>
+    </div>
+    <p class="headline">{{.Text}}</p>
+  </article>
+  {{end}}
   {{range .Insiders}}
   <article class="report">
     <div class="report-head">
@@ -305,9 +314,9 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
     <p class="summary">{{.Detail}}</p>
   </article>
   {{end}}
-  <p class="source">Open-market purchases and sales by executives, directors and 10% owners (Form 4). Purchases of $100K or more are shown; sales of $10M or more, or of a fifth of a holding worth $1M or more. Stock awards, option exercises and gifts are left out.</p>
+  <p class="source">Open-market purchases and sales by executives, directors and 10% owners (Form 4). Purchases of $100K or more are shown; sales of $10M or more, or of a fifth of a holding worth $1M or more. "Several insiders buying" marks three or more insiders buying the same stock within 30 days. Stock awards, option exercises and gifts are left out.</p>
   {{end}}
-  <p class="source">News companies on the watchlist filed with the SEC: 8-K reports, 6-K reports from foreign companies, and Schedule 13D filings by investors holding more than 5%. Routine filings, such as ordinary pay plans, are left out. Source: SEC EDGAR.</p>
+  <p class="source">News companies on the watchlist filed with the SEC: 8-K reports, 6-K reports from foreign companies, Schedule 13D filings by investors holding more than 5%, and proxy fights. Routine filings, such as ordinary pay plans, are left out. Source: SEC EDGAR.</p>
 </section>
 {{end}}
 
@@ -319,7 +328,7 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
     <tr><td class="when">{{date .Date}}</td><td>{{.Label}}</td></tr>
   {{end}}
   </table>
-  <p class="source">Earnings dates are estimates from last year's filing dates.</p>
+  <p class="source">Earnings dates from the Alpha Vantage earnings calendar. Dates marked estimated are guesses from last year's filing dates, used for companies the calendar does not list.</p>
 </section>
 {{end}}
 

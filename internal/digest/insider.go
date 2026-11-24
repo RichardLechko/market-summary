@@ -139,3 +139,28 @@ func rolePart(s string) string {
 	}
 	return strings.Join(words, " ")
 }
+
+// ClusterView is several insiders buying the same company's shares.
+type ClusterView struct {
+	Ticker string
+	Text   string
+}
+
+// NewClusterView renders a buying cluster.
+func NewClusterView(c analysis.InsiderCluster) ClusterView {
+	names := make([]string, len(c.Buyers))
+	for i, b := range c.Buyers {
+		names[i] = personName(b)
+	}
+	list := strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
+	when := c.First.Format("Jan 2")
+	if !c.Last.Equal(c.First) {
+		when = "between " + when + " and " + c.Last.Format("Jan 2")
+	} else {
+		when = "on " + when
+	}
+	return ClusterView{
+		Ticker: c.Ticker,
+		Text:   fmt.Sprintf("%d insiders bought %s of shares on the open market %s: %s.", len(names), money(c.Value), when, list),
+	}
+}

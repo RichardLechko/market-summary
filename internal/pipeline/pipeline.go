@@ -467,9 +467,7 @@ func (p *Pipeline) earnings(ctx context.Context, d *digest.Digest, start, now ti
 		}
 	}
 
-	for _, e := range analysis.ExpectedReports(p.Cfg.Watchlist, history, now, aheadDays) {
-		d.WeekAhead = append(d.WeekAhead, digest.AheadItem{Date: e.Date, Label: e.Company.Ticker + " earnings (estimated)"})
-	}
+	p.aheadEarnings(ctx, d, history, now)
 	return shown
 }
 

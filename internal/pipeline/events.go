@@ -31,7 +31,8 @@ func (p *Pipeline) companyFilings(ctx context.Context, c config.Company, cik int
 		sf := subs[i]
 		switch {
 		case sf.Form == "4":
-			if !sf.Filed.Before(windowDay) {
+			// A month before the window too, to spot several insiders buying.
+			if !sf.Filed.Before(windowDay.AddDate(0, 0, -analysis.ClusterDays)) {
 				p.ensureInsider(ctx, c, cik, sf)
 			}
 		case !sf.Filed.Before(eventDay):
@@ -204,6 +205,20 @@ func (p *Pipeline) news(d *digest.Digest, start, now time.Time, preview bool) (e
 		if r.Notable() {
 			d.Insiders = append(d.Insiders, digest.NewInsiderView(r))
 		}
+	}
+	recent, err := p.Store.InsiderFilingsBetween(windowDay.AddDate(0, 0, -analysis.ClusterDays-1), now)
+	if err != nil {
+		p.Log.Error("load insider filings failed", "err", err)
+		return events, insiders
+	}
+	var watchedRecent []model.InsiderFiling
+	for _, f := range recent {
+		if watched[f.Ticker] {
+			watchedRecent = append(watchedRecent, f)
+		}
+	}
+	for _, c := range analysis.InsiderClusters(watchedRecent, windowDay) {
+		d.Clusters = append(d.Clusters, digest.NewClusterView(c))
 	}
 	return events, insiders
 }

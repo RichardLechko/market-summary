@@ -32,12 +32,17 @@ func Is13D(form string) bool {
 
 // EventLabels returns plain labels for the news a filing may carry, or nil
 // if it is not a news filing.
+// Proxy fights are the contested proxy statements (PREC14A preliminary,
+// DEFC14A definitive) filed by the company or the challenger; the frequent
+// additional soliciting materials (DFAN14A) are left out.
 func EventLabels(form, items string) []string {
 	switch {
 	case Is13D(form) && strings.HasSuffix(form, "/A"):
 		return []string{"Activist stake update"}
 	case Is13D(form):
 		return []string{"Activist stake"}
+	case form == "PREC14A" || form == "DEFC14A":
+		return []string{"Proxy fight"}
 	case form == "6-K":
 		return []string{"Report from a foreign company"}
 	case form != "8-K" && form != "8-K/A":

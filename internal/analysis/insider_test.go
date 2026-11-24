@@ -44,3 +44,24 @@ func TestInsiderRows(t *testing.T) {
 		t.Error("small sale should not be notable")
 	}
 }
+
+func TestInsiderClusters(t *testing.T) {
+	window := time.Date(2026, 11, 16, 0, 0, 0, 0, time.Local)
+	buy := func(owner string, value float64) model.InsiderTrade {
+		return model.InsiderTrade{Owner: owner, Code: "P", Date: window.AddDate(0, 0, -5), Shares: value / 10, Price: 10}
+	}
+	filings := []model.InsiderFiling{
+		{Ticker: "AAA", Filed: window.AddDate(0, 0, -10), Trades: []model.InsiderTrade{buy("A", 50_000), buy("B", 30_000)}},
+		{Ticker: "AAA", Filed: window.AddDate(0, 0, 1), Trades: []model.InsiderTrade{buy("C", 30_000), buy("A", 10_000)}},
+		// Three buyers, but all filed before the window: already reported.
+		{Ticker: "OLD", Filed: window.AddDate(0, 0, -3), Trades: []model.InsiderTrade{buy("X", 1), buy("Y", 1), buy("Z", 1)}},
+		// Three buyers, but one spent too little to count.
+		{Ticker: "TOK", Filed: window, Trades: []model.InsiderTrade{buy("P", 30_000), buy("Q", 30_000), buy("R", 400)}},
+		// Two buyers and a seller.
+		{Ticker: "TWO", Filed: window, Trades: []model.InsiderTrade{buy("P", 1), buy("Q", 1), {Owner: "R", Code: "S", Shares: 1}}},
+	}
+	cs := InsiderClusters(filings, window)
+	if len(cs) != 1 || cs[0].Ticker != "AAA" || len(cs[0].Buyers) != 3 || cs[0].Value != 120_000 {
+		t.Fatalf("clusters = %+v", cs)
+	}
+}

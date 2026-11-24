@@ -50,3 +50,11 @@ func TestRoleText(t *testing.T) {
 		}
 	}
 }
+
+func TestNewClusterView(t *testing.T) {
+	d := time.Date(2026, 11, 3, 0, 0, 0, 0, time.Local)
+	v := NewClusterView(analysis.InsiderCluster{Ticker: "AAA", Buyers: []string{"Lee Ann", "Kim Bob", "Park Cy"}, Value: 1_200_000, First: d, Last: d.AddDate(0, 0, 17)})
+	if want := "3 insiders bought $1.2M of shares on the open market between Nov 3 and Nov 20: Ann Lee, Bob Kim and Cy Park."; v.Text != want {
+		t.Errorf("Text = %q", v.Text)
+	}
+}

@@ -2,6 +2,7 @@ package collect
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -146,4 +147,76 @@ func (t *AlphaVantage) base() string {
 		return t.BaseURL
 	}
 	return "https://www.alphavantage.co/query"
+}
+
+// CalendarEntry is one upcoming earnings report.
+type CalendarEntry struct {
+	Symbol string    `json:"symbol"`
+	Date   time.Time `json:"date"`
+	Time   string    `json:"time"` // "pre-market", "post-market" or ""
+}
+
+// EarningsCalendar returns expected earnings report dates for the next three
+// months for all US-listed companies, in one request.
+func (t *AlphaVantage) EarningsCalendar(ctx context.Context) ([]CalendarEntry, error) {
+	q := url.Values{
+		"function": {"EARNINGS_CALENDAR"},
+		"horizon":  {"3month"},
+		"apikey":   {t.Key},
+	}
+	body, err := t.HTTP.Get(ctx, t.base()+"?"+q.Encode())
+	if err != nil {
+		return nil, redactKey(err, t.Key)
+	}
+	if trimmed := strings.TrimSpace(string(body)); strings.HasPrefix(trimmed, "{") {
+		var resp struct {
+			Information string `json:"Information"`
+			Note        string `json:"Note"`
+			Error       string `json:"Error Message"`
+		}
+		if err := json.Unmarshal(body, &resp); err == nil && (resp.Information != "" || resp.Note != "") {
+			return nil, ErrAVLimit
+		}
+		return nil, fmt.Errorf("earnings calendar: unexpected response %.200s", trimmed)
+	}
+	rows, err := csv.NewReader(strings.NewReader(string(body))).ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("earnings calendar: %w", err)
+	}
+	if len(rows) < 1 {
+		return nil, errors.New("earnings calendar: empty")
+	}
+	col := map[string]int{}
+	for i, h := range rows[0] {
+		col[h] = i
+	}
+	si, ok1 := col["symbol"]
+	di, ok2 := col["reportDate"]
+	if !ok1 || !ok2 {
+		return nil, fmt.Errorf("earnings calendar: unexpected header %v", rows[0])
+	}
+	ti, hasTime := col["timeOfTheDay"]
+	var out []CalendarEntry
+	for _, r := range rows[1:] {
+		if len(r) <= si || len(r) <= di {
+			continue
+		}
+		d, err := time.ParseInLocation("2006-01-02", r[di], time.Local)
+		if err != nil {
+			continue
+		}
+		e := CalendarEntry{Symbol: strings.ToUpper(r[si]), Date: d}
+		if hasTime && len(r) > ti {
+			e.Time = r[ti]
+		}
+		out = append(out, e)
+	}
+	if len(out) == 0 {
+		if len(rows) > 1 {
+			// Over the limit, the endpoint returns its notice reshaped as CSV.
+			return nil, ErrAVLimit
+		}
+		return nil, errors.New("earnings calendar: no entries")
+	}
+	return out, nil
 }

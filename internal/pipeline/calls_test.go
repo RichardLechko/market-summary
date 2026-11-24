@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/RichardLechko/market-summary/internal/collect"
 	"github.com/RichardLechko/market-summary/internal/httpx"
@@ -19,6 +20,16 @@ import (
 func transcriptServer(t *testing.T, limit bool, hits *atomic.Int32) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("function") == "EARNINGS_CALENDAR" {
+			if limit {
+				fmt.Fprint(w, `{"Information":"rate limit"}`)
+				return
+			}
+			fmt.Fprint(w, "symbol,name,reportDate,fiscalDateEnding,estimate,currency,timeOfTheDay\n"+
+				"JPM,JPMORGAN CHASE,2026-11-27,2026-12-31,5.0,USD,pre-market\n"+
+				"XYZ,OTHER CO,2026-11-26,2026-12-31,1.0,USD,post-market\n")
+			return
+		}
 		hits.Add(1)
 		if limit {
 			fmt.Fprint(w, `{"Information":"rate limit"}`)
@@ -98,5 +109,35 @@ func TestCallNotesLimitAndMissingKey(t *testing.T) {
 	}
 	if !strings.Contains(readPage(t, res.Path), "ALPHAVANTAGE_API_KEY is not set") {
 		t.Error("missing-key note not shown")
+	}
+}
+
+func TestWeekAheadCalendar(t *testing.T) {
+	srv := fixtureServer(t)
+	var hits atomic.Int32
+	p := newTestPipeline(t, srv, &fakeCaller{}, &fakeSender{})
+	p.AV = &collect.AlphaVantage{HTTP: httpx.New("test", 0), Key: "k", BaseURL: transcriptServer(t, false, &hits).URL}
+	ctx := context.Background()
+
+	res, err := p.Run(ctx, Options{Now: now0, DryRun: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := readPage(t, res.Path)
+	if !strings.Contains(page, "JPM earnings, before the market opens") {
+		t.Error("calendar date missing")
+	}
+	if strings.Contains(page, "XYZ") || strings.Contains(page, "(estimated)") {
+		t.Error("unwatched ticker or estimate shown although the calendar lists JPM")
+	}
+
+	// The limit is reached on the next run: the stored calendar is used.
+	p.AV.BaseURL = transcriptServer(t, true, &hits).URL
+	res, err = p.Run(ctx, Options{Now: now0.Add(time.Hour), DryRun: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(readPage(t, res.Path), "JPM earnings, before the market opens") {
+		t.Error("stored calendar not used when the fetch failed")
 	}
 }

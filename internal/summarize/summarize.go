@@ -233,7 +233,7 @@ type EventInput struct {
 	Earlier []string // the company's earlier news, e.g. "2026-11-12: CEO resigned."
 }
 
-const eventSystem = `You read SEC filings that report company news other than earnings, for a personal market digest. They are 8-Ks (leadership changes, major agreements, acquisitions, restructurings and similar), 6-K reports from foreign companies, and Schedule 13D filings by investors holding more than 5% of a company.
+const eventSystem = `You read SEC filings that report company news other than earnings, for a personal market digest. They are 8-Ks (leadership changes, major agreements, acquisitions, restructurings and similar), 6-K reports from foreign companies, Schedule 13D filings by investors holding more than 5% of a company, and contested proxy statements (proxy fights), where a challenger asks shareholders to vote for its own board candidates.
 
 Rules:
 - Report only the news named under "Event items". If the filing also contains quarterly results, ignore the results.
@@ -241,6 +241,8 @@ Rules:
 - kind: two to four words naming what happened, for example "Leadership change", "Share buyback", "Lawsuit settled", "Acquisition agreed", "Activist stake".
 - routine: true when someone following the company would not care. Examples: an ordinary pay plan or equity award; a director retiring at the end of a term; a dividend; progress on an existing buyback; a meeting notice; a debt offering of a usual size; a 6-K that only carries quarterly results or monthly sales; a charter or bylaw change that only updates procedures (advance notice windows, proxy rules, exclusive forum, indemnification, conforming to state law). A change of CEO, CFO, president or board chair, an acquisition, a layoff, a write-down, a restatement, a bankruptcy, a delisting notice, a new activist stake, or a charter change that alters shareholder rights (takeover defenses, voting rights, board structure) is never routine.
 - For a Schedule 13D: name the investor, the stake as a percent of the class, and what the filing says the investor intends (Item 4). An amendment that only reports small changes in the stake is routine; one that changes the stake by a point or more, or changes the investor's plans, is not.
+- For a proxy fight: name the challenger, how many board seats it seeks, what it wants changed, and the meeting date if given. Say whether the filing is from the company or the challenger.
+- If this filing only repeats news already listed as earlier news (for example an updated proxy statement for the same contest, or an amended filing with no new facts), set routine to true.
 - headline: one plain sentence, at most 25 words, saying what happened.
 - summary: one to three sentences on who or what is involved, effective dates, and any figures stated. Say what the filing gives as the reason, or that it gives none. When routine is true, keep it to one short sentence.
 - When earlier news from the company is listed and this filing continues, completes or reverses it, say so briefly, for example "This reverses his November 11 resignation."

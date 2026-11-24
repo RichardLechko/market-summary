@@ -22,6 +22,10 @@ func TestEventLabels(t *testing.T) {
 		{"SCHEDULE 13D", "", []string{"Activist stake"}},
 		{"SCHEDULE 13D/A", "", []string{"Activist stake update"}},
 		{"SC 13D", "", []string{"Activist stake"}},
+		{"PREC14A", "", []string{"Proxy fight"}},
+		{"DEFC14A", "", []string{"Proxy fight"}},
+		{"DEF 14A", "", nil},
+		{"DFAN14A", "", nil},
 		{"SCHEDULE 13G", "", nil},
 		{"4", "", nil},
 	}

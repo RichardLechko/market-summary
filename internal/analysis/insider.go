@@ -113,3 +113,78 @@ func InsiderRows(filings []model.InsiderFiling) []InsiderRow {
 	})
 	return out
 }
+
+// ClusterDays and clusterBuyers define a buying cluster: at least
+// clusterBuyers different insiders buying the same company's shares on the
+// open market within ClusterDays.
+const (
+	ClusterDays   = 30
+	clusterBuyers = 3
+	// clusterMinBuy is the least a buyer must spend to count, so automatic
+	// plan purchases and token buys do not make a cluster.
+	clusterMinBuy = 25_000
+)
+
+// InsiderCluster is several insiders buying the same company's shares.
+type InsiderCluster struct {
+	Ticker      string
+	Buyers      []string // in order of first purchase
+	Value       float64
+	First, Last time.Time
+}
+
+// InsiderClusters finds companies where at least three insiders bought
+// shares in the given filings (the caller passes the last ClusterDays plus
+// the window), and at least one of those purchases was filed on or after
+// windowDay, so a cluster is reported when it forms or grows.
+func InsiderClusters(filings []model.InsiderFiling, windowDay time.Time) []InsiderCluster {
+	type acc struct {
+		c      InsiderCluster
+		spent  map[string]float64
+		recent bool
+	}
+	by := map[string]*acc{}
+	var order []string
+	for _, f := range filings {
+		for _, t := range f.Trades {
+			if t.Code != "P" {
+				continue
+			}
+			a, ok := by[f.Ticker]
+			if !ok {
+				a = &acc{c: InsiderCluster{Ticker: f.Ticker, First: t.Date, Last: t.Date}, spent: map[string]float64{}}
+				by[f.Ticker] = a
+				order = append(order, f.Ticker)
+			}
+			if _, ok := a.spent[t.Owner]; !ok {
+				a.c.Buyers = append(a.c.Buyers, t.Owner)
+			}
+			a.spent[t.Owner] += t.Shares * t.Price
+			a.c.Value += t.Shares * t.Price
+			if t.Date.Before(a.c.First) {
+				a.c.First = t.Date
+			}
+			if t.Date.After(a.c.Last) {
+				a.c.Last = t.Date
+			}
+			if !f.Filed.Before(windowDay) {
+				a.recent = true
+			}
+		}
+	}
+	var out []InsiderCluster
+	for _, t := range order {
+		a := by[t]
+		var buyers []string
+		for _, b := range a.c.Buyers {
+			if a.spent[b] >= clusterMinBuy {
+				buyers = append(buyers, b)
+			}
+		}
+		if a.recent && len(buyers) >= clusterBuyers {
+			a.c.Buyers = buyers
+			out = append(out, a.c)
+		}
+	}
+	return out
+}

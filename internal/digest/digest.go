@@ -46,6 +46,7 @@ type Digest struct {
 	Calls       []CallView    // earnings call notes
 	News        []NewsView    // non-earnings company filings
 	Insiders    []InsiderView // notable insider purchases and sales
+	Clusters    []ClusterView // several insiders buying the same company
 	Aggregate   *AggregateView
 	WeekAhead   []AheadItem
 	Notes       []string // sections that were unavailable and why
@@ -267,6 +268,9 @@ func (d *Digest) Brief() string {
 		for _, n := range d.News {
 			fmt.Fprintf(&b, "- %s %s (%s, filed %s): %s %s\n", n.Ticker, n.Kind, n.Company, n.Filed.Format("2006-01-02"), n.Headline, n.Summary)
 		}
+	}
+	for _, c := range d.Clusters {
+		fmt.Fprintf(&b, "\nSeveral insiders buying %s: %s\n", c.Ticker, c.Text)
 	}
 	if len(d.Insiders) > 0 {
 		b.WriteString("\nLarge insider trades (Form 4):\n")
