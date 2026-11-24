@@ -72,6 +72,13 @@ CREATE TABLE IF NOT EXISTS company_events (
 	news      TEXT,
 	reported  INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS insider_filings (
+	accession TEXT PRIMARY KEY,
+	ticker    TEXT NOT NULL,
+	filed     TEXT NOT NULL,
+	trades    TEXT NOT NULL,
+	reported  INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS llm_cache (
 	key     TEXT PRIMARY KEY,
 	output  TEXT NOT NULL,
@@ -484,6 +491,68 @@ func (s *Store) queryEvents(where string, args ...any) ([]model.CompanyEvent, er
 			e.News = &n
 		}
 		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// EventsForTicker returns a company's stored event filings, oldest first.
+func (s *Store) EventsForTicker(ticker string) ([]model.CompanyEvent, error) {
+	return s.queryEvents(`WHERE ticker = ? ORDER BY filed, accession`, ticker)
+}
+
+// SaveInsiderFiling stores a parsed Form 4, keeping its reported flag.
+func (s *Store) SaveInsiderFiling(f model.InsiderFiling) error {
+	b, err := json.Marshal(f.Trades)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`INSERT INTO insider_filings (accession, ticker, filed, trades) VALUES (?, ?, ?, ?)
+		ON CONFLICT (accession) DO UPDATE SET trades = excluded.trades`,
+		f.Accession, f.Ticker, f.Filed.Format(dateFmt), string(b))
+	return err
+}
+
+// HasInsiderFiling reports whether a Form 4 is stored.
+func (s *Store) HasInsiderFiling(accession string) (bool, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM insider_filings WHERE accession = ?`, accession).Scan(&n)
+	return n > 0, err
+}
+
+// UnreportedInsiderFilings returns Form 4s not yet included in a sent digest, oldest first.
+func (s *Store) UnreportedInsiderFilings() ([]model.InsiderFiling, error) {
+	return s.queryInsider(`WHERE reported = 0 ORDER BY filed, accession`)
+}
+
+// InsiderFilingsBetween returns Form 4s with from < filed <= to, oldest first.
+func (s *Store) InsiderFilingsBetween(from, to time.Time) ([]model.InsiderFiling, error) {
+	return s.queryInsider(`WHERE filed > ? AND filed <= ? ORDER BY filed, accession`,
+		from.Format(dateFmt), to.Format(dateFmt))
+}
+
+// MarkInsiderReported flags Form 4s as included in a sent digest.
+func (s *Store) MarkInsiderReported(accessions []string) error {
+	return s.markReported("insider_filings", accessions)
+}
+
+func (s *Store) queryInsider(where string, args ...any) ([]model.InsiderFiling, error) {
+	rows, err := s.db.Query(`SELECT accession, ticker, filed, trades, reported FROM insider_filings `+where, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.InsiderFiling
+	for rows.Next() {
+		var f model.InsiderFiling
+		var filed, trades string
+		if err := rows.Scan(&f.Accession, &f.Ticker, &filed, &trades, &f.Reported); err != nil {
+			return nil, err
+		}
+		f.Filed, _ = time.ParseInLocation(dateFmt, filed, time.Local)
+		if err := json.Unmarshal([]byte(trades), &f.Trades); err != nil {
+			return nil, fmt.Errorf("insider filing %s: %w", f.Accession, err)
+		}
+		out = append(out, f)
 	}
 	return out, rows.Err()
 }

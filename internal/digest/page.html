@@ -170,7 +170,7 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
     {{if .Macro}}<li><a href="#economy">Economy</a></li>{{end}}
     {{if .Fed}}<li><a href="#fed">Federal Reserve</a></li>{{end}}
     {{if or .Earnings .Calls .Aggregate}}<li><a href="#earnings">Earnings</a></li>{{end}}
-    {{if .News}}<li><a href="#news">Company news</a></li>{{end}}
+    {{if or .News .Insiders}}<li><a href="#news">Company news</a></li>{{end}}
     {{if .WeekAhead}}<li><a href="#ahead">Week ahead</a></li>{{end}}
     <li><a href="#terms">Terms</a></li>
   </ol>
@@ -280,7 +280,7 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
 </section>
 {{end}}
 
-{{if .News}}
+{{if or .News .Insiders}}
 <section id="news">
   <h2>Company news</h2>
   {{range .News}}
@@ -293,7 +293,21 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
     {{if .Summary}}<p class="summary">{{.Summary}}</p>{{end}}
   </article>
   {{end}}
-  <p class="source">Events companies on the watchlist reported to the SEC on Form 8-K, other than earnings. Routine filings, such as ordinary pay plans, are left out. Source: SEC EDGAR.</p>
+  {{if .Insiders}}
+  <h3>Insider trades</h3>
+  {{range .Insiders}}
+  <article class="report">
+    <div class="report-head">
+      <span class="ticker">{{.Ticker}}</span>
+      <span class="meta">{{.Who}}{{with .Role}} · {{.}}{{end}}</span>
+    </div>
+    <p class="headline">{{.What}}</p>
+    <p class="summary">{{.Detail}}</p>
+  </article>
+  {{end}}
+  <p class="source">Open-market purchases and sales by executives, directors and 10% owners (Form 4). Purchases of $100K or more are shown; sales of $10M or more, or of a fifth of a holding worth $1M or more. Stock awards, option exercises and gifts are left out.</p>
+  {{end}}
+  <p class="source">News companies on the watchlist filed with the SEC: 8-K reports, 6-K reports from foreign companies, and Schedule 13D filings by investors holding more than 5%. Routine filings, such as ordinary pay plans, are left out. Source: SEC EDGAR.</p>
 </section>
 {{end}}
 

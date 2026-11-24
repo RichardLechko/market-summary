@@ -95,7 +95,32 @@ type CompanyEvent struct {
 // EventNews is what the model takes from an event filing.
 type EventNews struct {
 	Company  string `json:"company"`
+	Kind     string `json:"kind"`    // short label, e.g. "Share buyback"
 	Routine  bool   `json:"routine"` // not worth showing, e.g. a routine pay plan
 	Headline string `json:"headline"`
 	Summary  string `json:"summary"`
+}
+
+// InsiderFiling is one Form 4 for a watchlist company. Trades holds only
+// open-market purchases and sales; it is empty for filings with neither or
+// for filings about another company.
+type InsiderFiling struct {
+	Accession string
+	Ticker    string
+	Filed     time.Time
+	Trades    []InsiderTrade
+	Reported  bool
+}
+
+// InsiderTrade is one open-market purchase or sale reported on Form 4.
+type InsiderTrade struct {
+	Owner      string    `json:"owner"`
+	Role       string    `json:"role"` // e.g. "President and CEO", "Director"
+	Date       time.Time `json:"date"`
+	Code       string    `json:"code"` // P purchase, S sale
+	Shares     float64   `json:"shares"`
+	Price      float64   `json:"price"`
+	OwnedAfter float64   `json:"owned_after"`
+	Account    string    `json:"account"` // direct, or the indirect holder, e.g. "By Trust"
+	Plan       bool      `json:"plan"`    // made under a pre-arranged Rule 10b5-1 plan
 }

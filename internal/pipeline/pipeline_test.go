@@ -50,7 +50,10 @@ func readPage(t *testing.T, path string) string {
 	return html.UnescapeString(string(b))
 }
 
-type fakeCaller struct{ extractions atomic.Int32 }
+type fakeCaller struct {
+	extractions  atomic.Int32
+	eventPrompts []string
+}
 
 func (f *fakeCaller) Call(_ context.Context, req summarize.Request) (string, error) {
 	if strings.Contains(req.System, "earnings call transcripts") {
@@ -59,11 +62,15 @@ func (f *fakeCaller) Call(_ context.Context, req summarize.Request) (string, err
 		}
 		return `{"matches_period":false,"tone":"","themes":[],"analyst_focus":[],"outlook":""}`, nil
 	}
-	if strings.Contains(req.System, "8-K filings that report company events") {
-		if strings.Contains(req.User, "PAY PLAN") {
-			return `{"company":"JPMorgan Chase","routine":true,"headline":"Pay plan amended.","summary":"Routine."}`, nil
+	if strings.Contains(req.System, "company news other than earnings") {
+		f.eventPrompts = append(f.eventPrompts, req.User)
+		if strings.Contains(req.User, "schedule13D") {
+			return `{"company":"JPMorgan Chase","kind":"Activist stake","routine":false,"headline":"An investor took a 6% stake.","summary":"It plans to talk to the board."}`, nil
 		}
-		return `{"company":"JPMorgan Chase","routine":false,"headline":"The CEO resigned.","summary":"No reason was given."}`, nil
+		if strings.Contains(req.User, "PAY PLAN") {
+			return `{"company":"JPMorgan Chase","kind":"Pay plan","routine":true,"headline":"Pay plan amended.","summary":"Routine."}`, nil
+		}
+		return `{"company":"JPMorgan Chase","kind":"Leadership change","routine":false,"headline":"The CEO resigned.","summary":"No reason was given."}`, nil
 	}
 	if req.Schema != nil {
 		n := f.extractions.Add(1)
@@ -113,11 +120,11 @@ func fixtureServer(t *testing.T) *httptest.Server {
 	})
 	mux.HandleFunc("/submissions/CIK0000019617.json", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, `{"filings":{"recent":{
-			"accessionNumber":["0000019617-26-000310","0000019617-26-000305","0000019617-26-000300","0000019617-26-000200","0000019617-26-000250","0000019617-26-000100"],
-			"filingDate":["2026-11-22","2026-11-21","2026-11-20","2026-11-19","2026-10-14","2026-08-14"],
-			"form":["8-K","8-K","8-K","8-K","8-K","8-K"],
-			"items":["5.02,9.01","5.02","2.02,9.01","8.01","2.02,9.01","2.02,9.01"],
-			"primaryDocument":["f.htm","g.htm","a.htm","b.htm","e.htm","c.htm"]},"files":[]}}`)
+			"accessionNumber":["0000019617-26-000330","0000019617-26-000320","0000019617-26-000315","0000019617-26-000310","0000019617-26-000305","0000019617-26-000300","0000019617-26-000200","0000019617-26-000250","0000019617-26-000100"],
+			"filingDate":["2026-11-23","2026-11-23","2026-11-23","2026-11-22","2026-11-21","2026-11-20","2026-11-19","2026-10-14","2026-08-14"],
+			"form":["SCHEDULE 13D","4","SCHEDULE 13D","8-K","8-K","8-K","8-K","8-K","8-K"],
+			"items":["","","","5.02,9.01","5.02","2.02,9.01","8.01","2.02,9.01","2.02,9.01"],
+			"primaryDocument":["xslSCHEDULE_13D_X02/d13.xml","xslF345X06/f4.xml","xslSCHEDULE_13D_X02/other13.xml","f.htm","g.htm","a.htm","b.htm","e.htm","c.htm"]},"files":[]}}`)
 	})
 	mux.HandleFunc("/Archives/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "-index.htm") {
@@ -128,6 +135,15 @@ func fixtureServer(t *testing.T) *httptest.Server {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/f.htm"):
 			fmt.Fprint(w, `<html><body><p>Item 5.02. CEO RESIGNS effective immediately.</p></body></html>`)
+			return
+		case strings.HasSuffix(r.URL.Path, "/d13.xml"):
+			fmt.Fprint(w, `<edgarSubmission xmlns="http://www.sec.gov/edgar/schedule13D"><formData><coverPageHeader><issuerInfo><issuerCIK>0000019617</issuerCIK></issuerInfo></coverPageHeader></formData></edgarSubmission>`)
+			return
+		case strings.HasSuffix(r.URL.Path, "/other13.xml"):
+			fmt.Fprint(w, `<edgarSubmission xmlns="http://www.sec.gov/edgar/schedule13D"><formData><coverPageHeader><issuerInfo><issuerCIK>0000099999</issuerCIK></issuerInfo></coverPageHeader></formData></edgarSubmission>`)
+			return
+		case strings.HasSuffix(r.URL.Path, "/f4.xml"):
+			fmt.Fprint(w, `<ownershipDocument><issuer><issuerCik>0000019617</issuerCik></issuer><reportingOwner><reportingOwnerId><rptOwnerName>Dimon James</rptOwnerName></reportingOwnerId><reportingOwnerRelationship><isOfficer>1</isOfficer><officerTitle>Chairman and CEO</officerTitle></reportingOwnerRelationship></reportingOwner><aff10b5One>1</aff10b5One><nonDerivativeTable><nonDerivativeTransaction><transactionDate><value>2026-11-20</value></transactionDate><transactionCoding><transactionCode>S</transactionCode></transactionCoding><transactionAmounts><transactionShares><value>100000</value></transactionShares><transactionPricePerShare><value>300</value></transactionPricePerShare></transactionAmounts><postTransactionAmounts><sharesOwnedFollowingTransaction><value>900000</value></sharesOwnedFollowingTransaction></postTransactionAmounts><ownershipNature><directOrIndirectOwnership><value>D</value></directOrIndirectOwnership></ownershipNature></nonDerivativeTransaction><nonDerivativeTransaction><transactionDate><value>2026-11-20</value></transactionDate><transactionCoding><transactionCode>A</transactionCode></transactionCoding><transactionAmounts><transactionShares><value>5000</value></transactionShares></transactionAmounts></nonDerivativeTransaction></nonDerivativeTable></ownershipDocument>`)
 			return
 		case strings.HasSuffix(r.URL.Path, "/g.htm"):
 			fmt.Fprint(w, `<html><body><p>Item 5.02. PAY PLAN amended.</p></body></html>`)
@@ -204,6 +220,11 @@ func TestRunEndToEnd(t *testing.T) {
 		"Company news",
 		"The CEO resigned.",
 		"Leadership change",
+		"An investor took a 6% stake.",
+		"Insider trades",
+		"James Dimon",
+		"Sold 100,000 shares for $30.0M",
+		"About 10% of the shares held in those accounts. Under a pre-arranged trading plan.",
 		"Revenue 110 USD millions (+10.0% y/y)",
 		"Consumer Price Index",
 		"FOMC meeting, decision Thu Nov 26",
@@ -214,6 +235,18 @@ func TestRunEndToEnd(t *testing.T) {
 	}
 	if strings.Contains(body, "Pay plan amended.") {
 		t.Error("routine event shown")
+	}
+	if strings.Contains(body, "Not about this company.") {
+		t.Error("13D about another company shown")
+	}
+	var sawEarlier bool
+	for _, pr := range caller.eventPrompts {
+		if strings.Contains(pr, "schedule13D") && strings.Contains(pr, "2026-11-22: The CEO resigned.") {
+			sawEarlier = true
+		}
+	}
+	if !sawEarlier {
+		t.Error("13D prompt did not include the earlier leadership news")
 	}
 	// Current release plus the prior quarter for the standard-depth comparison.
 	if n := caller.extractions.Load(); n != 2 {

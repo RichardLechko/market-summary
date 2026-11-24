@@ -43,8 +43,9 @@ type Digest struct {
 	Macro       []MacroGroup
 	Fed         []model.FedDoc
 	Earnings    []EarningsSector
-	Calls       []CallView // earnings call notes
-	News        []NewsView // non-earnings company filings
+	Calls       []CallView    // earnings call notes
+	News        []NewsView    // non-earnings company filings
+	Insiders    []InsiderView // notable insider purchases and sales
 	Aggregate   *AggregateView
 	WeekAhead   []AheadItem
 	Notes       []string // sections that were unavailable and why
@@ -265,6 +266,12 @@ func (d *Digest) Brief() string {
 		b.WriteString("\nCompany news (SEC filings):\n")
 		for _, n := range d.News {
 			fmt.Fprintf(&b, "- %s %s (%s, filed %s): %s %s\n", n.Ticker, n.Kind, n.Company, n.Filed.Format("2006-01-02"), n.Headline, n.Summary)
+		}
+	}
+	if len(d.Insiders) > 0 {
+		b.WriteString("\nLarge insider trades (Form 4):\n")
+		for _, in := range d.Insiders {
+			fmt.Fprintf(&b, "- %s: %s (%s) %s. %s\n", in.Ticker, in.Who, in.Role, in.What, in.Detail)
 		}
 	}
 	if d.Aggregate != nil {

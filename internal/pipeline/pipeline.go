@@ -131,7 +131,7 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 	p.fed(ctx, d, start, now)
 	filings := p.earnings(ctx, d, start, now, !opts.Since.IsZero())
 	callNotes := p.calls(ctx, d, start, now, !opts.Since.IsZero())
-	events := p.news(d, start, now, !opts.Since.IsZero())
+	events, insiders := p.news(d, start, now, !opts.Since.IsZero())
 	p.weekAhead(ctx, d, now)
 
 	if p.Sum != nil {
@@ -217,6 +217,9 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 	}
 	if err := p.Store.MarkEventsReported(events); err != nil {
 		return res, fmt.Errorf("mark events reported: %w", err)
+	}
+	if err := p.Store.MarkInsiderReported(insiders); err != nil {
+		return res, fmt.Errorf("mark insider filings reported: %w", err)
 	}
 	return res, nil
 }
@@ -374,11 +377,6 @@ func (p *Pipeline) earnings(ctx context.Context, d *digest.Digest, start, now ti
 			p.Log.Error("edgar submissions failed", "ticker", c.Ticker, "err", err)
 			continue
 		}
-		for _, sf := range subs {
-			if !sf.Filed.Before(windowDay) {
-				p.ensureEvent(ctx, c, cik, sf)
-			}
-		}
 		cands := candidates(c, subs)
 		for i, sf := range cands {
 			if sf.Form == "8-K" {
@@ -396,6 +394,7 @@ func (p *Pipeline) earnings(ctx context.Context, d *digest.Digest, start, now ti
 			}
 			p.ensureFiling(ctx, c, cik, sf, prior)
 		}
+		p.companyFilings(ctx, c, cik, subs, windowDay)
 		if slices.Contains(c.Forms, "6-K") {
 			stored, _ := p.Store.FilingsForTicker(c.Ticker)
 			for _, f := range stored {

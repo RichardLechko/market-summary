@@ -226,29 +226,34 @@ func (s *Summarizer) CallNotes(ctx context.Context, in CallInput) (model.CallNot
 
 // EventInput describes one company event filing to summarize.
 type EventInput struct {
-	Ticker string
-	Kinds  []string // plain labels for the 8-K items, e.g. "Leadership change"
-	Filing string   // the 8-K text
-	Press  string   // the attached press release, if any
+	Ticker  string
+	Kinds   []string // plain labels for the filing, e.g. "Leadership change"
+	Filing  string   // the filing text (XML for a Schedule 13D)
+	Press   string   // the attached press release, if any
+	Earlier []string // the company's earlier news, e.g. "2026-11-12: CEO resigned."
 }
 
-const eventSystem = `You read SEC 8-K filings that report company events other than earnings (leadership changes, major agreements, acquisitions, restructurings and similar) for a personal market digest.
+const eventSystem = `You read SEC filings that report company news other than earnings, for a personal market digest. They are 8-Ks (leadership changes, major agreements, acquisitions, restructurings and similar), 6-K reports from foreign companies, and Schedule 13D filings by investors holding more than 5% of a company.
 
 Rules:
-- Report only the event items named above. If the filing also contains quarterly results, ignore the results.
-- company: the company's name as written in the filing.
-- routine: true only when someone following the company would not care, for example an ordinary pay plan or equity award, a routine director retirement at the end of a term, a technical bylaw edit, or renewing an existing credit line on similar terms. A change of CEO, CFO, president or board chair, an acquisition, a layoff, a write-down, a restatement, a bankruptcy or a delisting notice is never routine.
+- Report only the news named under "Event items". If the filing also contains quarterly results, ignore the results.
+- company: the subject company's name as written in the filing.
+- kind: two to four words naming what happened, for example "Leadership change", "Share buyback", "Lawsuit settled", "Acquisition agreed", "Activist stake".
+- routine: true when someone following the company would not care. Examples: an ordinary pay plan or equity award; a director retiring at the end of a term; a dividend; progress on an existing buyback; a meeting notice; a debt offering of a usual size; a 6-K that only carries quarterly results or monthly sales; a charter or bylaw change that only updates procedures (advance notice windows, proxy rules, exclusive forum, indemnification, conforming to state law). A change of CEO, CFO, president or board chair, an acquisition, a layoff, a write-down, a restatement, a bankruptcy, a delisting notice, a new activist stake, or a charter change that alters shareholder rights (takeover defenses, voting rights, board structure) is never routine.
+- For a Schedule 13D: name the investor, the stake as a percent of the class, and what the filing says the investor intends (Item 4). An amendment that only reports small changes in the stake is routine; one that changes the stake by a point or more, or changes the investor's plans, is not.
 - headline: one plain sentence, at most 25 words, saying what happened.
 - summary: one to three sentences on who or what is involved, effective dates, and any figures stated. Say what the filing gives as the reason, or that it gives none. When routine is true, keep it to one short sentence.
-- Use only what is in the filing. Do not speculate about causes or effects on the stock.
+- When earlier news from the company is listed and this filing continues, completes or reverses it, say so briefly, for example "This reverses his November 11 resignation."
+- Use only what is in the filing and the earlier news listed. Do not speculate about causes or effects on the stock.
 - Write for a reader who is learning how markets work. Plain language, no hype, no investment advice.`
 
 var eventSchema = json.RawMessage(`{
   "type": "object",
   "additionalProperties": false,
-  "required": ["company","routine","headline","summary"],
+  "required": ["company","kind","routine","headline","summary"],
   "properties": {
     "company": {"type": "string"},
+    "kind": {"type": "string"},
     "routine": {"type": "boolean"},
     "headline": {"type": "string"},
     "summary": {"type": "string"}
@@ -258,7 +263,7 @@ var eventSchema = json.RawMessage(`{
 // maxEventChars bounds each document sent for an event filing.
 const maxEventChars = 30000
 
-// CompanyEvent summarizes a non-earnings 8-K.
+// CompanyEvent summarizes a news filing.
 func (s *Summarizer) CompanyEvent(ctx context.Context, in EventInput) (model.EventNews, error) {
 	clip := func(t string) string {
 		if len(t) > maxEventChars {
@@ -267,7 +272,14 @@ func (s *Summarizer) CompanyEvent(ctx context.Context, in EventInput) (model.Eve
 		return t
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "Ticker: %s\nEvent items: %s\n\n<filing>\n%s\n</filing>", in.Ticker, strings.Join(in.Kinds, "; "), clip(in.Filing))
+	fmt.Fprintf(&b, "Ticker: %s\nEvent items: %s\n", in.Ticker, strings.Join(in.Kinds, "; "))
+	if len(in.Earlier) > 0 {
+		b.WriteString("\nEarlier news from this company:\n")
+		for _, e := range in.Earlier {
+			fmt.Fprintf(&b, "- %s\n", e)
+		}
+	}
+	fmt.Fprintf(&b, "\n<filing>\n%s\n</filing>", clip(in.Filing))
 	if in.Press != "" {
 		fmt.Fprintf(&b, "\n\n<press_release>\n%s\n</press_release>", clip(in.Press))
 	}

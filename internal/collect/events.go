@@ -6,8 +6,8 @@ import (
 )
 
 // eventItems are the 8-K items reported as company news, with plain labels.
-// Routine items (shareholder votes, Regulation FD notices, "other events")
-// are left out.
+// Shareholder vote results (5.07) and Regulation FD notices (7.01), mostly
+// investor slides, are left out.
 var eventItems = []struct{ Item, Label string }{
 	{"1.01", "Major agreement"},
 	{"1.02", "Agreement ended"},
@@ -21,12 +21,26 @@ var eventItems = []struct{ Item, Label string }{
 	{"5.01", "Change in control"},
 	{"5.02", "Leadership change"},
 	{"5.03", "Charter or bylaw change"},
+	{"8.01", "Other news"},
 }
 
-// EventLabels returns plain labels for the news items an 8-K reports, or nil
-// if it reports none.
+// Is13D reports whether a form is a Schedule 13D: a stake above 5% held by
+// an investor who may seek to influence the company.
+func Is13D(form string) bool {
+	return strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(form, "SCHEDULE "), "SC "), "/A") == "13D"
+}
+
+// EventLabels returns plain labels for the news a filing may carry, or nil
+// if it is not a news filing.
 func EventLabels(form, items string) []string {
-	if form != "8-K" && form != "8-K/A" {
+	switch {
+	case Is13D(form) && strings.HasSuffix(form, "/A"):
+		return []string{"Activist stake update"}
+	case Is13D(form):
+		return []string{"Activist stake"}
+	case form == "6-K":
+		return []string{"Report from a foreign company"}
+	case form != "8-K" && form != "8-K/A":
 		return nil
 	}
 	have := strings.Split(items, ",")
@@ -35,6 +49,11 @@ func EventLabels(form, items string) []string {
 		if slices.Contains(have, e.Item) {
 			out = append(out, e.Label)
 		}
+	}
+	// An earnings 8-K's "other events" item is nearly always the dividend;
+	// the earnings summary covers it.
+	if slices.Contains(have, "2.02") && slices.Equal(out, []string{"Other news"}) {
+		return nil
 	}
 	return out
 }
