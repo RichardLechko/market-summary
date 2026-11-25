@@ -25,7 +25,7 @@ func NewClaude(apiKey string) *Claude {
 func (c *Claude) Call(ctx context.Context, req Request) (string, error) {
 	params := anthropic.BetaMessageNewParams{
 		Model:     req.Model,
-		MaxTokens: 16000,
+		MaxTokens: max(req.MaxTokens, 16000),
 		System: []anthropic.BetaTextBlockParam{{
 			Text:         req.System,
 			CacheControl: anthropic.NewBetaCacheControlEphemeralParam(),
@@ -44,7 +44,18 @@ func (c *Claude) Call(ctx context.Context, req Request) (string, error) {
 		params.OutputConfig.Format = anthropic.BetaJSONOutputFormatParam{Schema: req.Schema}
 	}
 
-	resp, err := c.client.Beta.Messages.New(ctx, params)
+	// Streamed and assembled here: the SDK refuses long outputs without
+	// streaming.
+	stream := c.client.Beta.Messages.NewStreaming(ctx, params)
+	resp := &anthropic.BetaMessage{}
+	for stream.Next() {
+		if err := resp.Accumulate(stream.Current()); err != nil {
+			_ = stream.Close()
+			return "", fmt.Errorf("claude: %w", err)
+		}
+	}
+	err := stream.Err()
+	_ = stream.Close()
 	if err != nil {
 		var apiErr *anthropic.Error
 		if errors.As(err, &apiErr) {

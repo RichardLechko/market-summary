@@ -21,6 +21,8 @@ type Request struct {
 	System string
 	User   string
 	Schema json.RawMessage // nil for free text
+	// MaxTokens caps the response, thinking included; 0 means 16,000.
+	MaxTokens int64
 }
 
 // Caller performs a model call and returns the response text.
@@ -40,6 +42,7 @@ type Summarizer struct {
 	Cache           Cache
 	ExtractionModel string
 	OverviewModel   string
+	PodcastModel    string // empty means OverviewModel
 	Effort          string
 }
 

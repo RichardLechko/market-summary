@@ -72,6 +72,9 @@ func (f *fakeCaller) Call(_ context.Context, req summarize.Request) (string, err
 		}
 		return `{"company":"JPMorgan Chase","kind":"Leadership change","routine":false,"headline":"The CEO resigned.","summary":"No reason was given."}`, nil
 	}
+	if strings.Contains(req.System, "two-host audio version") {
+		return `{"turns":[{"host":"Dan","text":"Welcome to the week."},{"host":"Kate","text":"JPMorgan's CEO resigned."},{"host":"Someone","text":"Unknown host."}]}`, nil
+	}
 	if req.Schema != nil {
 		n := f.extractions.Add(1)
 		return fmt.Sprintf(`{"is_earnings_release":true,"company":"JPMorgan Chase","period":"Q%d 2026","unit":"USD millions",

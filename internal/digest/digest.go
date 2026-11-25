@@ -112,14 +112,15 @@ func (d *Digest) RenderPage() (string, error) {
 }
 
 // RenderEmail returns the short email body: the opening summary and a pointer
-// to the attached PDF.
-func (d *Digest) RenderEmail(pdfAttached bool) (string, error) {
+// to the attached PDF and podcast.
+func (d *Digest) RenderEmail(pdfAttached, audioAttached bool) (string, error) {
 	var buf bytes.Buffer
 	if err := emailTmpl.Execute(&buf, struct {
 		*Digest
-		Subject     string
-		PDFAttached bool
-	}{d, d.Subject(), pdfAttached}); err != nil {
+		Subject       string
+		PDFAttached   bool
+		AudioAttached bool
+	}{d, d.Subject(), pdfAttached, audioAttached}); err != nil {
 		return "", err
 	}
 	return buf.String(), nil

@@ -19,6 +19,7 @@ import (
 	"github.com/RichardLechko/market-summary/internal/pipeline"
 	"github.com/RichardLechko/market-summary/internal/store"
 	"github.com/RichardLechko/market-summary/internal/summarize"
+	"github.com/RichardLechko/market-summary/internal/tts"
 )
 
 const (
@@ -160,6 +161,11 @@ func status(cfg *config.Config, p *pipeline.Pipeline) int {
 		n = "0"
 	}
 	row("Alpha Vantage", fmt.Sprintf("%s of %d requests used today (as counted by this program)", n, avDailyLimit))
+	chars, _ := p.Store.Meta(pipeline.MetaTTSChars + now.Format("2006-01"))
+	if chars == "" {
+		chars = "0"
+	}
+	row("Podcast voices", fmt.Sprintf("%s of %s free characters used this month", chars, "1,000,000"))
 
 	fmt.Println("\nChecks:")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -196,6 +202,11 @@ func status(cfg *config.Config, p *pipeline.Pipeline) int {
 		check("Alpha Vantage", errors.New("ALPHAVANTAGE_API_KEY is not set; call notes, fund prices and the earnings calendar are skipped"))
 	} else {
 		fmt.Printf("  %-15s key set (not tested, to save the daily requests)\n", "Alpha Vantage")
+	}
+	if sec.GoogleTTSKey == "" {
+		fmt.Printf("  %-15s off: GOOGLE_TTS_API_KEY is not set\n", "Podcast")
+	} else {
+		check("Podcast", tts.NewGoogle(sec.GoogleTTSKey).Check(ctx))
 	}
 	if runtime.GOOS == "windows" {
 		if next, err := scheduledTask(); err != nil {

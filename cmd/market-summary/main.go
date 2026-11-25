@@ -25,6 +25,7 @@ import (
 	"github.com/RichardLechko/market-summary/internal/pipeline"
 	"github.com/RichardLechko/market-summary/internal/store"
 	"github.com/RichardLechko/market-summary/internal/summarize"
+	"github.com/RichardLechko/market-summary/internal/tts"
 )
 
 func main() {
@@ -37,8 +38,9 @@ func usage() {
   market-summary open [--root DIR]
   market-summary status [--root DIR]
 
-run       build the summary, open it in the browser, and email it with a PDF,
-          if 7+ days have passed since the last one
+run       build the summary, open it in the browser, and email it with a PDF
+          (and a podcast MP3 when GOOGLE_TTS_API_KEY is set), if 7+ days have
+          passed since the last one
 --force   send now regardless of the last send date
 --dry-run build the summary without emailing or recording it
 --no-open do not open the summary in the browser
@@ -176,6 +178,9 @@ func run(args []string) int {
 		if res.PDFPath != "" {
 			fmt.Printf("PDF at %s\n", res.PDFPath)
 		}
+		if res.AudioPath != "" {
+			fmt.Printf("Podcast at %s\n", res.AudioPath)
+		}
 	}
 	return 0
 }
@@ -211,8 +216,12 @@ func newPipeline(cfg *config.Config, st *store.Store, log *slog.Logger) *pipelin
 			Cache:           st,
 			ExtractionModel: cfg.Settings.ExtractionModel,
 			OverviewModel:   cfg.Settings.OverviewModel,
+			PodcastModel:    cfg.Settings.Podcast.Model,
 			Effort:          cfg.Settings.Effort,
 		}
+	}
+	if sec.GoogleTTSKey != "" {
+		p.TTS = tts.NewGoogle(sec.GoogleTTSKey)
 	}
 	return p
 }

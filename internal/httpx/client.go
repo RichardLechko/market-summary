@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -19,6 +20,9 @@ type Client struct {
 	MinInterval time.Duration
 	Attempts    int
 	BaseBackoff time.Duration
+	// Header is added to every request, e.g. an API key that must not
+	// appear in URLs (URLs end up in error messages and logs).
+	Header http.Header
 
 	mu   sync.Mutex
 	last time.Time
@@ -40,6 +44,7 @@ type StatusError struct {
 	Method string // empty means GET
 	URL    string
 	Status int
+	Detail string // start of the response body, for APIs that explain errors
 }
 
 func (e *StatusError) Error() string {
@@ -47,7 +52,11 @@ func (e *StatusError) Error() string {
 	if m == "" {
 		m = http.MethodGet
 	}
-	return fmt.Sprintf("%s %s: HTTP %d", m, e.URL, e.Status)
+	s := fmt.Sprintf("%s %s: HTTP %d", m, e.URL, e.Status)
+	if e.Detail != "" {
+		s += ": " + e.Detail
+	}
+	return s
 }
 
 func (c *Client) wait(ctx context.Context) error {
@@ -94,9 +103,9 @@ func (c *Client) send(ctx context.Context, method, url string, reqBody []byte) (
 		case err == nil && status >= 200 && status < 300:
 			return body, nil
 		case err == nil && status != http.StatusTooManyRequests && status < 500:
-			return nil, &StatusError{Method: method, URL: url, Status: status}
+			return nil, &StatusError{Method: method, URL: url, Status: status, Detail: detail(body)}
 		case err == nil:
-			lastErr = &StatusError{Method: method, URL: url, Status: status}
+			lastErr = &StatusError{Method: method, URL: url, Status: status, Detail: detail(body)}
 		default:
 			lastErr = err
 		}
@@ -125,6 +134,9 @@ func (c *Client) do(ctx context.Context, method, url string, reqBody []byte) ([]
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 	}
+	for k, v := range c.Header {
+		req.Header[k] = v
+	}
 	if c.UserAgent != "" {
 		req.Header.Set("User-Agent", c.UserAgent)
 	}
@@ -138,4 +150,13 @@ func (c *Client) do(ctx context.Context, method, url string, reqBody []byte) ([]
 		return nil, resp.StatusCode, err
 	}
 	return body, resp.StatusCode, nil
+}
+
+// detail returns the start of an error body on one line.
+func detail(body []byte) string {
+	s := strings.Join(strings.Fields(string(body)), " ")
+	if len(s) > 300 {
+		s = s[:300] + "..."
+	}
+	return s
 }

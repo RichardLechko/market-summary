@@ -16,6 +16,8 @@ All free:
 
 Claude reads each earnings release and returns the reported figures plus a short summary. Growth rates, the season aggregate, and every other number are computed in code.
 
+Optionally, the digest also comes as a podcast: Claude writes a conversation between two hosts from the same facts, and **Google Cloud Text-to-Speech** (Chirp 3 HD voices, free for the first million characters a month; an episode uses about 20,000) reads it into one MP3 that is attached to the email. Hosts, voices, length, speed and the script model are under `podcast` in `config/settings.yaml`.
+
 ## Setup
 
 Requires Go 1.26+.
@@ -35,6 +37,7 @@ Fill in:
 | `SEC_USER_AGENT` | Your own text with a contact email, e.g. `market-summary you@example.com`. SEC rejects requests without one. |
 | `SMTP_USER`, `SMTP_PASSWORD` | A Gmail address and an app password (needs 2-Step Verification; myaccount.google.com/apppasswords) |
 | `MAIL_TO` | Where to send the digest |
+| `GOOGLE_TTS_API_KEY` | Optional, for the podcast. In console.cloud.google.com: a project with billing linked, the Cloud Text-to-Speech API enabled, and an API key restricted to that API. |
 
 Personal holdings go in `config/watchlist.local.yaml` (gitignored), same format as `config/watchlist.yaml`:
 
@@ -47,7 +50,7 @@ companies:
 
 ## Usage
 
-Each run writes a web page to `data\digests\` (also copied to `latest.html`), opens it in your browser, and emails a short note with the same page attached as a PDF.
+Each run writes a web page to `data\digests\` (also copied to `latest.html`), opens it in your browser, and emails a short note with the same page attached as a PDF, plus the podcast MP3 when it is set up (its transcript is saved next to the page).
 
 ```powershell
 go run ./cmd/market-summary run --dry-run                    # build and open the page, no email

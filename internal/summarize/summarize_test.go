@@ -63,3 +63,22 @@ func TestOverviewFreeText(t *testing.T) {
 		t.Fatalf("request = %+v", fc.calls[0])
 	}
 }
+
+func TestPodcast(t *testing.T) {
+	fc := &fakeCaller{reply: `{"turns":[{"host":"Dan","text":" Welcome. "},{"host":"Kate","text":""},{"host":"Kate","text":"Thanks."}]}`}
+	s := &Summarizer{Caller: fc, OverviewModel: "big", ExtractionModel: "small"}
+	turns, err := s.Podcast(context.Background(), "facts", [2]string{"Dan", "Kate"}, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(turns) != 2 || turns[0] != (Turn{"Dan", "Welcome."}) || turns[1].Host != "Kate" {
+		t.Fatalf("turns = %+v", turns)
+	}
+	req := fc.calls[0]
+	if req.Model != "big" || !strings.Contains(req.User, "about 3000 words") || !strings.Contains(string(req.Schema), `["Dan","Kate"]`) {
+		t.Fatalf("request = %+v", req)
+	}
+	if _, err := (&Summarizer{Caller: &fakeCaller{reply: `{"turns":[]}`}}).Podcast(context.Background(), "f", [2]string{"A", "B"}, 5); err == nil {
+		t.Fatal("expected error for an empty script")
+	}
+}

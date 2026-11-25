@@ -48,3 +48,20 @@ func TestDotEnvDoesNotOverride(t *testing.T) {
 		t.Fatalf("A=%q B=%q", os.Getenv("MS_TEST_A"), os.Getenv("MS_TEST_B"))
 	}
 }
+
+func TestPodcastSettings(t *testing.T) {
+	c := &Config{}
+	if err := c.validate(); err != nil || c.Settings.Podcast.Minutes != 20 || c.Settings.Podcast.SpeakingRate != 1 {
+		t.Fatalf("defaults: %+v, %v", c.Settings.Podcast, err)
+	}
+	for _, p := range []Podcast{
+		{Hosts: []Host{{Name: "A", Voice: "v"}}},
+		{Hosts: []Host{{Name: "A", Voice: "v"}, {Name: "B"}}},
+		{SpeakingRate: 3},
+	} {
+		c := &Config{Settings: Settings{Podcast: p}}
+		if c.validate() == nil {
+			t.Errorf("accepted %+v", p)
+		}
+	}
+}

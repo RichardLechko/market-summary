@@ -69,7 +69,22 @@ type Settings struct {
 	BrowserPath     string   `yaml:"browser_path"`
 	Releases        []string `yaml:"releases"`
 	// BackupDir holds weekly database copies; empty means data/backups.
-	BackupDir string `yaml:"backup_dir"`
+	BackupDir string  `yaml:"backup_dir"`
+	Podcast   Podcast `yaml:"podcast"`
+}
+
+// Podcast configures the two-host audio version of the summary.
+type Podcast struct {
+	Model        string  `yaml:"model"`         // writes the script; empty means overview_model
+	Minutes      int     `yaml:"minutes"`       // target length
+	SpeakingRate float64 `yaml:"speaking_rate"` // 1.0 is normal speed
+	Hosts        []Host  `yaml:"hosts"`         // exactly two
+}
+
+// Host is one podcast voice.
+type Host struct {
+	Name  string `yaml:"name"`
+	Voice string `yaml:"voice"` // Google Cloud voice name
 }
 
 // Secrets come from the environment.
@@ -77,6 +92,7 @@ type Secrets struct {
 	AnthropicKey    string
 	FREDKey         string
 	AlphaVantageKey string
+	GoogleTTSKey    string
 	SECUserAgent    string
 	SMTPHost        string
 	SMTPPort        string
@@ -187,6 +203,24 @@ func (c *Config) validate() error {
 			return fmt.Errorf("watchlist %s: unknown depth %q", co.Ticker, co.Depth)
 		}
 	}
+	pc := &c.Settings.Podcast
+	if len(pc.Hosts) != 0 && len(pc.Hosts) != 2 {
+		return fmt.Errorf("podcast: need exactly two hosts, got %d", len(pc.Hosts))
+	}
+	for _, h := range pc.Hosts {
+		if h.Name == "" || h.Voice == "" {
+			return errors.New("podcast: each host needs a name and a voice")
+		}
+	}
+	if pc.Minutes <= 0 {
+		pc.Minutes = 20
+	}
+	if pc.SpeakingRate == 0 {
+		pc.SpeakingRate = 1
+	}
+	if pc.SpeakingRate < 0.25 || pc.SpeakingRate > 2 {
+		return fmt.Errorf("podcast: speaking_rate %.2f is outside 0.25 to 2", pc.SpeakingRate)
+	}
 	return nil
 }
 
@@ -247,6 +281,7 @@ func secretsFromEnv() Secrets {
 		AnthropicKey:    os.Getenv("ANTHROPIC_API_KEY"),
 		FREDKey:         os.Getenv("FRED_API_KEY"),
 		AlphaVantageKey: os.Getenv("ALPHAVANTAGE_API_KEY"),
+		GoogleTTSKey:    os.Getenv("GOOGLE_TTS_API_KEY"),
 		SECUserAgent:    os.Getenv("SEC_USER_AGENT"),
 		SMTPHost:        host,
 		SMTPPort:        port,

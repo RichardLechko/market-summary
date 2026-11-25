@@ -9,7 +9,7 @@
 <div style="max-width:560px;margin:0 auto;padding:28px 20px;">
 <p style="margin:0 0 18px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#57524a;">Market summary · {{date .WindowStart}} – {{date .WindowEnd}}</p>
 {{range paras .Overview}}<p style="margin:0 0 14px;">{{.}}</p>{{end}}
-<p style="margin:20px 0 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:#57524a;">{{if .PDFAttached}}The full summary is attached as a PDF.{{else}}The full summary is on your PC in data\digests\latest.html.{{end}}</p>
+<p style="margin:20px 0 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:#57524a;">{{if .PDFAttached}}The full summary is attached as a PDF.{{else}}The full summary is on your PC in data\digests\latest.html.{{end}}{{if .AudioAttached}} The podcast version is attached as an MP3.{{end}}</p>
 </div>
 </body>
 </html>

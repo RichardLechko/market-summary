@@ -45,6 +45,7 @@ type Result struct {
 	NextEligible time.Time
 	Path         string
 	PDFPath      string
+	AudioPath    string
 	Sent         bool
 	Subject      string
 }
@@ -60,6 +61,7 @@ type Pipeline struct {
 	AV    *collect.AlphaVantage // call transcripts and fund prices; nil or no key disables both
 	FINRA *collect.FINRA        // short interest; nil disables it
 	Sum   *summarize.Summarizer // nil when no API key is configured
+	TTS   Speaker               // podcast voices; nil disables the podcast
 	Mail  Sender
 	// PrintPDF renders the page to a PDF for the email; nil skips the PDF.
 	PrintPDF func(ctx context.Context, htmlPath, pdfPath string) error
@@ -184,6 +186,14 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 			})
 		}
 	}
+	if audio := p.podcast(ctx, d, base, now); audio != nil {
+		res.AudioPath = base + ".mp3"
+		atts = append(atts, digest.Attachment{
+			Name:        "market-summary-" + now.Format("2006-01-02") + ".mp3",
+			ContentType: "audio/mpeg",
+			Data:        audio,
+		})
+	}
 	if opts.Open && p.Open != nil {
 		if err := p.Open(path); err != nil {
 			p.Log.Warn("open in browser failed", "err", err)
@@ -193,7 +203,7 @@ func (p *Pipeline) Run(ctx context.Context, opts Options) (Result, error) {
 		return res, nil
 	}
 
-	email, err := d.RenderEmail(len(atts) > 0)
+	email, err := d.RenderEmail(res.PDFPath != "", res.AudioPath != "")
 	if err != nil {
 		return res, fmt.Errorf("render email: %w", err)
 	}

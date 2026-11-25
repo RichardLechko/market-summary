@@ -40,3 +40,21 @@ releases:
 # kept). Empty means data/backups. A synced folder such as OneDrive keeps a
 # copy off this PC.
 backup_dir: ""
+
+# Podcast: a two-host audio version of the summary, attached to the email as
+# an MP3 when GOOGLE_TTS_API_KEY is set in .env. Voices are Google Cloud
+# Chirp 3 HD (free for the first million characters a month; an episode is
+# about 20,000). Voice list:
+# https://docs.cloud.google.com/text-to-speech/docs/chirp3-hd
+podcast:
+  # Writes the script. Haiku costs under a cent a week but follows the
+  # conversational style loosely; Sonnet is about 13 cents a week.
+  model: claude-sonnet-5-5
+  minutes: 20
+  # 1.0 is normal speed; 1.1 is a little brisker.
+  speaking_rate: 1.0
+  hosts:
+    - name: Dan
+      voice: en-US-Chirp3-HD-Charon
+    - name: Kate
+      voice: en-US-Chirp3-HD-Kore

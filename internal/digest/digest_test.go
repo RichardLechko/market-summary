@@ -93,13 +93,19 @@ func TestMailValidate(t *testing.T) {
 
 func TestRenderEmail(t *testing.T) {
 	d := sample()
-	with, err := d.RenderEmail(true)
+	with, err := d.RenderEmail(true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	without, _ := d.RenderEmail(false)
+	without, _ := d.RenderEmail(false, false)
 	if !strings.Contains(with, "attached as a PDF") || !strings.Contains(without, "latest.html") {
 		t.Fatal("email footer wrong")
+	}
+	if strings.Contains(with, "MP3") {
+		t.Fatal("no podcast was attached")
+	}
+	if audio, _ := d.RenderEmail(true, true); !strings.Contains(audio, "podcast version is attached as an MP3") {
+		t.Fatal("podcast not mentioned")
 	}
 	if strings.Contains(with, "NVDA") {
 		t.Fatal("email should carry only the overview")
