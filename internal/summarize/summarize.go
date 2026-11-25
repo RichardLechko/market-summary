@@ -152,7 +152,7 @@ func (s *Summarizer) FedSummary(ctx context.Context, d model.FedDoc) (string, er
 const overviewSystem = `You write the opening paragraph of a personal market digest. The reader is learning how markets work and wants to know how the market is doing and why.
 Use only the facts in the brief. Every number you mention must appear in the brief; do not calculate new ones.
 Connect the pieces: what moved, the likely reasons given in the brief, and what to watch next. Prefer cause and effect over lists.
-Assume the reader knows no finance jargon. The first time you use a term such as VIX, basis points, Treasury yield, credit spread, core PCE, guidance, or FOMC, explain it in a few plain words inside the sentence (for example "the VIX, a gauge of how much turbulence traders expect, jumped 57%"). Say what a move means for ordinary people when the brief supports it.
+Assume the reader knows no finance jargon. The first time you use a term such as VIX, basis points, Treasury yield, credit spread, core PCE, guidance, or FOMC, explain it in a few plain words inside the sentence (for example "the VIX, a gauge of how much turbulence traders expect, jumped 57%"). Say what a move means for ordinary people when the brief supports it. When the brief says what a sample amount put in a fund would now be worth, use that once for the main stock index move, since a dollar figure is easier to grasp than a percent or index points.
 Write 150 to 250 words in two or three short paragraphs. No headings, no bullet points, no investment advice.`
 
 // Overview writes the opening summary from a plain-text brief of computed facts.

@@ -23,6 +23,33 @@ type MacroRow struct {
 	New        bool // has data newer than the last digest
 	Flagged    bool
 	Trend      []float64 // past year of the displayed quantity, oldest first
+	// Invested is what the example investment in a fund tracking this series
+	// is worth after the change; InvestedText is empty when not applicable.
+	Invested     float64
+	InvestedText string
+}
+
+// ApplyInvestment fills Invested for fund rows with a percent change: what
+// amount dollars put in at the start of the window would be worth now
+// (before dividends and fees).
+func ApplyInvestment(rows []MacroRow, amount float64) {
+	for i := range rows {
+		r := &rows[i]
+		if !r.Series.Fund || !r.HasChange || amount <= 0 {
+			continue
+		}
+		r.Invested = amount * (1 + r.Change/100)
+		r.InvestedText = fmt.Sprintf("$%s is now $%s", FormatNumber(amount, 0), FormatNumber(RoundDollars(r.Invested, amount), 0))
+	}
+}
+
+// RoundDollars rounds v to a precision that suits the size of amount: whole
+// dollars under 1,000, tens of dollars above.
+func RoundDollars(v, amount float64) float64 {
+	if amount < 1000 {
+		return math.Round(v)
+	}
+	return math.Round(v/10) * 10
 }
 
 // Macro computes a row per series. windowStart is the cutoff of the previous

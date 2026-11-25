@@ -25,11 +25,12 @@ func sample() *Digest {
 	})
 	return &Digest{
 		WindowStart: start, WindowEnd: end,
-		Overview:  "First paragraph.\n\nSecond paragraph.",
-		Market:    []analysis.MacroRow{{Series: config.Series{Name: "S&P 500"}, ValueText: "6,150.00", ChangeText: "+2.5%", HasChange: true, Flagged: true}},
-		Earnings:  []EarningsSector{{Sector: "Mega-cap tech", Reports: []EarningsView{NewEarningsView(row, "https://www.sec.gov/x")}}},
-		WeekAhead: []AheadItem{{Date: end.AddDate(0, 0, 2), Label: "Consumer Price Index"}},
-		Notes:     []string{"A note."},
+		Overview:          "First paragraph.\n\nSecond paragraph.",
+		Market:            []analysis.MacroRow{{Series: config.Series{Name: "S&P 500", Fund: true}, ValueText: "6,150.00", Change: 2.5, ChangeText: "+2.5%", HasChange: true, Flagged: true, Invested: 10250, InvestedText: "$10,000 is now $10,250"}},
+		ExampleInvestment: 10000,
+		Earnings:          []EarningsSector{{Sector: "Mega-cap tech", Reports: []EarningsView{NewEarningsView(row, "https://www.sec.gov/x")}}},
+		WeekAhead:         []AheadItem{{Date: end.AddDate(0, 0, 2), Label: "Consumer Price Index"}},
+		Notes:             []string{"A note."},
 	}
 }
 
@@ -46,6 +47,7 @@ func TestRender(t *testing.T) {
 		"Wednesday, November 25, 2026",
 		"<p>Second paragraph.</p>",
 		"S&P 500",
+		"$10,000 is now $10,250",
 		"Revenue 60,000 USD millions (+50.0% y/y)",
 		"Diluted EPS 1.50 vs 1.00 a year ago (+50.0% y/y)",
 		"Guidance raised.</b> Q4 revenue outlook above consensus.",
@@ -67,7 +69,7 @@ func TestRender(t *testing.T) {
 
 func TestBrief(t *testing.T) {
 	b := sample().Brief()
-	for _, want := range []string{"S&P 500: 6,150.00 (+2.5%) [notable move]", "NVDA Q3 FY2027", "Consumer Price Index"} {
+	for _, want := range []string{"S&P 500: 6,150.00 (+2.5%; $10,000 put in a fund tracking it at the start would now be worth $10,250) [notable move]", "NVDA Q3 FY2027", "Consumer Price Index"} {
 		if !strings.Contains(b, want) {
 			t.Errorf("brief missing %q:\n%s", want, b)
 		}

@@ -40,18 +40,20 @@ type Digest struct {
 	WindowEnd   time.Time
 	Overview    string
 	Market      []analysis.MacroRow
-	Macro       []MacroGroup
-	Fed         []model.FedDoc
-	Earnings    []EarningsSector
-	Calls       []CallView    // earnings call notes
-	News        []NewsView    // non-earnings company filings
-	Insiders    []InsiderView // notable insider purchases and sales
-	Clusters    []ClusterView // several insiders buying the same company
-	Short       []ShortView   // latest short interest, when newly published
-	ShortAsOf   time.Time
-	Aggregate   *AggregateView
-	WeekAhead   []AheadItem
-	Notes       []string // sections that were unavailable and why
+	// ExampleInvestment is the dollar amount behind the rows' InvestedText.
+	ExampleInvestment float64
+	Macro             []MacroGroup
+	Fed               []model.FedDoc
+	Earnings          []EarningsSector
+	Calls             []CallView    // earnings call notes
+	News              []NewsView    // non-earnings company filings
+	Insiders          []InsiderView // notable insider purchases and sales
+	Clusters          []ClusterView // several insiders buying the same company
+	Short             []ShortView   // latest short interest, when newly published
+	ShortAsOf         time.Time
+	Aggregate         *AggregateView
+	WeekAhead         []AheadItem
+	Notes             []string // sections that were unavailable and why
 }
 
 // MacroGroup is a titled block of macro rows.
@@ -229,7 +231,12 @@ func (d *Digest) Brief() string {
 		for _, r := range rows {
 			fmt.Fprintf(&b, "- %s: %s", r.Series.Name, r.ValueText)
 			if r.HasChange {
-				fmt.Fprintf(&b, " (%s)", r.ChangeText)
+				fmt.Fprintf(&b, " (%s", r.ChangeText)
+				if r.InvestedText != "" {
+					fmt.Fprintf(&b, "; %s put in a fund tracking it at the start would now be worth $%s",
+						"$"+analysis.FormatNumber(d.ExampleInvestment, 0), analysis.FormatNumber(analysis.RoundDollars(r.Invested, d.ExampleInvestment), 0))
+				}
+				b.WriteString(")")
 			}
 			if r.Flagged {
 				b.WriteString(" [notable move]")

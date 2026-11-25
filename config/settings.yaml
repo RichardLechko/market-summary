@@ -41,6 +41,10 @@ releases:
 # copy off this PC.
 backup_dir: ""
 
+# Fund moves are also shown as money: what this many dollars put in a fund
+# tracking the index at the start of the period would be worth now.
+example_investment: 10000
+
 # Podcast: a two-host audio version of the summary, attached to the email as
 # an MP3 when GOOGLE_TTS_API_KEY is set in .env. Voices are Google Cloud
 # Chirp 3 HD (free for the first million characters a month; an episode is

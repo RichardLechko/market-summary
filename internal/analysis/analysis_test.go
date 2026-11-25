@@ -128,3 +128,22 @@ func TestExpectedReports(t *testing.T) {
 		}
 	}
 }
+
+func TestApplyInvestment(t *testing.T) {
+	rows := []MacroRow{
+		{Series: config.Series{ID: "SP500", Fund: true}, Change: -1.43, HasChange: true},
+		{Series: config.Series{ID: "VIX"}, Change: 20, HasChange: true},
+		{Series: config.Series{ID: "GLD", Fund: true}},
+	}
+	ApplyInvestment(rows, 10000)
+	if got := rows[0].InvestedText; got != "$10,000 is now $9,860" {
+		t.Errorf("fund row: %q", got)
+	}
+	if rows[1].InvestedText != "" || rows[2].InvestedText != "" {
+		t.Errorf("non-fund or unchanged rows should have no dollar text: %+v", rows[1:])
+	}
+	ApplyInvestment(rows[:1], 500)
+	if got := rows[0].InvestedText; got != "$500 is now $493" {
+		t.Errorf("small amount: %q", got)
+	}
+}

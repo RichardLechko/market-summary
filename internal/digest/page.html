@@ -88,6 +88,7 @@ td.spark-cell { width: 6.5rem; padding-left: 1rem; padding-top: 0.8rem; }
 .spark .end { fill: var(--ink); }
 .spark .end.flag { fill: var(--accent); }
 td.chg.flag { color: var(--accent); font-weight: 600; }
+.money { display: block; font-size: 0.8125rem; font-weight: 400; color: var(--ink-3); margin-top: 0.15rem; }
 th { font-family: var(--sans); font-size: 0.75rem; font-weight: 600; color: var(--ink-3); text-align: left; padding: 0 0 0.4rem; border-bottom: 1px solid var(--rule); }
 th.num { text-align: right; padding-left: 1rem; }
 table.short td { padding: 0.5rem 0; }
@@ -199,11 +200,11 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
       <td><span class="name">{{.Series.Name}}</span>{{with .Series.About}}<span class="about">{{.}}</span>{{end}}</td>
       <td class="spark-cell">{{spark .Trend .Flagged}}</td>
       <td class="num">{{.ValueText}}</td>
-      <td class="num chg{{if .Flagged}} flag{{end}}">{{.ChangeText}}</td>
+      <td class="num chg{{if .Flagged}} flag{{end}}">{{.ChangeText}}{{with .InvestedText}}<span class="money">{{.}}</span>{{end}}</td>
     </tr>
   {{end}}
   </table>
-  <p class="source">Lines show up to the past 12 months; the dot is the latest value. Change since the last summary. Red marks a larger-than-usual move. Sources: FRED; fund prices (IWM, TLT, GLD) from Alpha Vantage.</p>
+  <p class="source">Lines show up to the past 12 months; the dot is the latest value. Change since the last summary. Red marks a larger-than-usual move. Dollar figures show what money put in a fund tracking the index at the start of the period would be worth now, before dividends and fees. Sources: FRED; fund prices (IWM, TLT, GLD) from Alpha Vantage.</p>
 </section>
 {{end}}
 
@@ -218,7 +219,7 @@ dl.terms dd { margin: 0; color: var(--ink-2); line-height: 1.5; }
       <td><span class="name">{{.Series.Name}}</span>{{if .New}}<span class="tag">New</span>{{end}}{{with .Series.About}}<span class="about">{{.}}</span>{{end}}</td>
       <td class="spark-cell">{{spark .Trend .Flagged}}</td>
       <td class="num">{{.ValueText}}</td>
-      <td class="num chg{{if .Flagged}} flag{{end}}">{{.ChangeText}}</td>
+      <td class="num chg{{if .Flagged}} flag{{end}}">{{.ChangeText}}{{with .InvestedText}}<span class="money">{{.}}</span>{{end}}</td>
     </tr>
   {{end}}
   </table>

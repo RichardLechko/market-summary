@@ -18,18 +18,21 @@ series:
     name: S&P 500 (SPY)
     group: Market
     kind: price
+    fund: true
     flag_threshold: 2
     about: The 500 largest US companies. The usual shorthand for "the stock market."
   - id: NASDAQ100
     name: Nasdaq-100 (QQQ)
     group: Market
     kind: price
+    fund: true
     flag_threshold: 3
     about: The 100 largest non-financial companies on the Nasdaq, mostly technology. Swings more than the S&P 500.
   - id: DJIA
     name: Dow Jones Industrial (DIA)
     group: Market
     kind: price
+    fund: true
     flag_threshold: 2
     about: 30 large, established US companies. The oldest index, narrower than the S&P 500.
   - id: IWM
@@ -37,6 +40,7 @@ series:
     source: alphavantage
     group: Market
     kind: price
+    fund: true
     flag_threshold: 3
     about: Fund tracking the Russell 2000, about 2,000 smaller US companies. More sensitive to interest rates and the US economy than the big indexes.
   - id: VIXCLS
@@ -69,6 +73,7 @@ series:
     source: alphavantage
     group: Rates
     kind: price
+    fund: true
     flag_threshold: 3
     about: Fund holding government bonds that mature in 20+ years. Its price moves opposite to long-term interest rates.
   - id: T10Y2Y
@@ -139,6 +144,7 @@ series:
     source: alphavantage
     group: Commodities
     kind: price
+    fund: true
     flag_threshold: 3
     about: Fund that holds physical gold. Investors buy gold when worried about inflation, a weaker dollar, or turmoil.
 

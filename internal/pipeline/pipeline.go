@@ -295,6 +295,8 @@ func (p *Pipeline) macro(ctx context.Context, d *digest.Digest, start, now time.
 		}
 	}
 	rows := analysis.Macro(p.Cfg.Series, data, start, reported)
+	analysis.ApplyInvestment(rows, p.Cfg.Settings.ExampleInvestment)
+	d.ExampleInvestment = p.Cfg.Settings.ExampleInvestment
 
 	groups := map[string][]analysis.MacroRow{}
 	var order []string

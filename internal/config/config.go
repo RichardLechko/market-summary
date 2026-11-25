@@ -32,6 +32,9 @@ type Series struct {
 	About     string  `yaml:"about"`
 	Threshold float64 `yaml:"flag_threshold"`
 	Source    string  `yaml:"source"` // "" or fred (default), alphavantage (fund and stock prices)
+	// Fund marks a price series you can buy a fund for; its row shows what
+	// example_investment would be worth after the move.
+	Fund bool `yaml:"fund"`
 }
 
 // Company is one watchlist entry.
@@ -69,8 +72,11 @@ type Settings struct {
 	BrowserPath     string   `yaml:"browser_path"`
 	Releases        []string `yaml:"releases"`
 	// BackupDir holds weekly database copies; empty means data/backups.
-	BackupDir string  `yaml:"backup_dir"`
-	Podcast   Podcast `yaml:"podcast"`
+	BackupDir string `yaml:"backup_dir"`
+	// ExampleInvestment is the dollar amount used to translate fund moves
+	// into money; 0 means 10,000.
+	ExampleInvestment float64 `yaml:"example_investment"`
+	Podcast           Podcast `yaml:"podcast"`
 }
 
 // Podcast configures the two-host audio version of the summary.
@@ -202,6 +208,17 @@ func (c *Config) validate() error {
 		default:
 			return fmt.Errorf("watchlist %s: unknown depth %q", co.Ticker, co.Depth)
 		}
+	}
+	for _, s := range c.Series {
+		if s.Fund && s.Kind != "price" {
+			return fmt.Errorf("series %s: fund applies only to kind price", s.ID)
+		}
+	}
+	if c.Settings.ExampleInvestment < 0 {
+		return errors.New("example_investment must not be negative")
+	}
+	if c.Settings.ExampleInvestment == 0 {
+		c.Settings.ExampleInvestment = 10000
 	}
 	pc := &c.Settings.Podcast
 	if len(pc.Hosts) != 0 && len(pc.Hosts) != 2 {
